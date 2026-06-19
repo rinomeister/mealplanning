@@ -1,0 +1,88 @@
+import { z } from "zod";
+
+export const SLOTS = [
+  "BREAKFAST",
+  "SNACK_1",
+  "LUNCH",
+  "SNACK_2",
+  "DINNER",
+] as const;
+export type SlotKey = (typeof SLOTS)[number];
+
+export const SLOT_LABELS: Record<SlotKey, string> = {
+  BREAKFAST: "Breakfast",
+  SNACK_1: "Snack #1",
+  LUNCH: "Lunch",
+  SNACK_2: "Snack #2",
+  DINNER: "Dinner",
+};
+
+export const loginSchema = z.object({
+  email: z.email().trim().toLowerCase(),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const registerSchema = z.object({
+  name: z.string().trim().max(80).optional(),
+  email: z.email().trim().toLowerCase(),
+  password: z.string().min(8, "Use at least 8 characters"),
+});
+
+const optionalNumber = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === "" || v === null) return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  });
+
+export const ingredientSchema = z.object({
+  name: z.string().trim().min(1, "Name required").max(120),
+  qty: optionalNumber,
+  unit: z.string().trim().max(24).optional().transform((v) => v || null),
+  note: z.string().trim().max(160).optional().transform((v) => v || null),
+});
+
+export const mealSchema = z.object({
+  name: z.string().trim().min(1, "Meal name is required").max(120),
+  prepSteps: z.string().trim().max(8000).optional().transform((v) => v || null),
+  servingLabel: z.string().trim().max(60).optional().transform((v) => v || null),
+  kcal: optionalNumber,
+  protein: optionalNumber,
+  fat: optionalNumber,
+  carbs: optionalNumber,
+  ingredients: z.array(ingredientSchema).max(100).default([]),
+  tagIds: z.array(z.string()).default([]),
+});
+
+export type MealInput = z.infer<typeof mealSchema>;
+export type MealInputRaw = z.input<typeof mealSchema>;
+
+export const tagSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  color: z.string().trim().max(16).optional(),
+});
+
+export const planEntrySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  slot: z.enum(SLOTS),
+  mealId: z.string().min(1),
+  servings: z.coerce.number().positive().max(100).default(1),
+});
+
+export const bodyweightSchema = z.object({
+  weightKg: z.coerce.number().positive().max(700),
+  recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  note: z.string().trim().max(160).optional().transform((v) => v || null),
+});
+
+export const profileSchema = z.object({
+  name: z.string().trim().max(80).optional().transform((v) => v || null),
+  heightCm: optionalNumber,
+  targetKcal: optionalNumber,
+  targetProtein: optionalNumber,
+  targetFat: optionalNumber,
+  targetCarbs: optionalNumber,
+  units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
+});

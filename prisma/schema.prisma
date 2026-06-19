@@ -1,0 +1,153 @@
+// Prisma schema for the meal planning PWA.
+// Provider: PostgreSQL (Coolify-managed in production).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  heightCm      Float?
+  targetKcal    Int?
+  targetProtein Int?
+  targetFat     Int?
+  targetCarbs   Int?
+  units         Units    @default(METRIC)
+
+  meals          Meal[]
+  tags           Tag[]
+  planEntries    PlanEntry[]
+  bodyweights    BodyweightLog[]
+  shoppingChecks ShoppingCheck[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Meal {
+  id           String  @id @default(cuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  prepSteps    String? // free text / step list (optional)
+  servingLabel String? // describes the 1-serving baseline, e.g. "1 bowl"
+  kcal         Float?
+  protein      Float? // grams
+  fat          Float?
+  carbs        Float?
+
+  ingredients Ingredient[]
+  tags        MealTag[]
+  planEntries PlanEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Ingredient {
+  id       String  @id @default(cuid())
+  mealId   String
+  meal     Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  name     String // required
+  qty      Float? // optional (hybrid)
+  unit     String? // optional: ml, g, tbsp, pcs...
+  note     String?
+  position Int     @default(0)
+
+  @@index([mealId])
+}
+
+model Tag {
+  id     String    @id @default(cuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  color  String?
+  meals  MealTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model MealTag {
+  mealId String
+  tagId  String
+  meal   Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([mealId, tagId])
+  @@index([tagId])
+}
+
+model PlanEntry {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime    @db.Date
+  slot      Slot
+  mealId    String
+  meal      Meal        @relation(fields: [mealId], references: [id], onDelete: Restrict)
+  servings  Float       @default(1)
+  status    EntryStatus @default(PLANNED)
+  position  Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  @@index([userId, date])
+  @@index([mealId])
+}
+
+model BodyweightLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weightKg   Float
+  recordedAt DateTime @db.Date
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, recordedAt])
+  @@index([userId, recordedAt])
+}
+
+// Persisted check-off state for the dynamically-computed shopping list.
+// Keyed by normalized "name|unit" so it survives plan changes.
+model ShoppingCheck {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemKey   String
+  checked   Boolean  @default(true)
+  checkedAt DateTime @default(now())
+
+  @@unique([userId, itemKey])
+  @@index([userId])
+}
+
+enum Slot {
+  BREAKFAST
+  SNACK_1
+  LUNCH
+  SNACK_2
+  DINNER
+}
+
+enum EntryStatus {
+  PLANNED
+  EATEN
+  SKIPPED
+}
+
+enum Units {
+  METRIC
+  IMPERIAL
+}

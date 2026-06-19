@@ -1,0 +1,21 @@
+# Local development Postgres only.
+# Requires Docker Desktop. Start with:  docker compose up -d
+# Then run:  npm run db:migrate
+#
+# If you do not want Docker locally, point DATABASE_URL in .env at any other
+# Postgres (your Coolify DB, a Neon free tier, a native install, etc.).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: meal
+      POSTGRES_PASSWORD: meal
+      POSTGRES_DB: mealplanning
+    ports:
+      - "5432:5432"
+    volumes:
+      - mealplanning_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mealplanning_pgdata:

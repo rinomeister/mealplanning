@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(docker --version)",
+      "PowerShell(npm install @prisma/client next-auth@beta bcryptjs zod date-fns recharts lucide-react clsx tailwind-merge class-variance-authority)",
+      "PowerShell(npx prisma generate)",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(node scripts/generate-icons.mjs)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell($env:SERWIST_SUPPRESS_TURBOPACK_WARNING=1; npm run build 2>&1 | Select-Object -Last 70)",
+      "PowerShell(npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script 2>&1)",
+      "PowerShell(npm run db:deploy 2>&1)",
+      "PowerShell(Test-NetConnection -ComputerName 82.165.74.250 -Port 5432 -WarningAction SilentlyContinue)",
+      "PowerShell(node scripts/db-test.mjs)",
+      "PowerShell(node scripts/verify.mjs)",
+      "PowerShell(node scripts/verify-app.mjs)"
+    ]
+  }
+}

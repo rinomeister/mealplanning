@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+npm-debug.log*
+.env
+.env.*
+src/generated
+public/sw.js
+public/sw.js.map
+*.md
+.vscode
+.claude
