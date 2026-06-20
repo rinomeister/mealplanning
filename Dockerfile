@@ -22,9 +22,11 @@ ENV NODE_OPTIONS=--max-old-space-size=1536
 RUN npm run build
 
 # --- Production-only dependencies ---
-FROM base AS proddeps
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
+# Derive from `deps` and prune dev deps instead of a second full `npm ci`.
+# This avoids two heavy installs running in parallel, which halves peak build
+# memory on the 2 GB VPS (and saves ~2 min).
+FROM deps AS proddeps
+RUN npm prune --omit=dev
 
 # --- Runtime image ---
 FROM base AS runner
