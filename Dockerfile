@@ -7,7 +7,10 @@ RUN apk add --no-cache libc6-compat
 # --- Full dependencies (for building) ---
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+# Skip lifecycle scripts: the postinstall runs `prisma generate`, but the schema
+# isn't in this stage. The client is generated later in the builder stage (the
+# `build` script runs `prisma generate` after the full source is copied).
+RUN npm ci --ignore-scripts
 
 # --- Build the app ---
 FROM base AS builder
