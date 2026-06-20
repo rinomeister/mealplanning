@@ -91,7 +91,7 @@ export default async function DashboardPage() {
               Plan today <ArrowRight className="size-3" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {todayEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nothing planned yet.{" "}
@@ -146,7 +146,7 @@ export default async function DashboardPage() {
               Log <ArrowRight className="size-3" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {latest ? (
               <div className="flex items-baseline gap-3">
                 <span className="text-2xl font-semibold">
@@ -209,7 +209,7 @@ function StatCard({
   return (
     <Link href={href}>
       <Card className="h-full transition-colors hover:border-primary/50">
-        <CardContent className="flex flex-col gap-1 pt-5">
+        <CardContent className="flex flex-col gap-1">
           <span className="text-primary">{icon}</span>
           <span className="text-2xl font-bold">{value}</span>
           <span className="text-xs text-muted-foreground">{label}</span>

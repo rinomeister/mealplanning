@@ -146,7 +146,7 @@ export function MealForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <Card>
-        <CardContent className="flex flex-col gap-4 pt-5">
+        <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Meal name</Label>
             <Input
@@ -171,7 +171,7 @@ export function MealForm({
 
       {/* Ingredients */}
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-5">
+        <CardContent className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Label>Ingredients</Label>
             <span className="text-xs text-muted-foreground">
@@ -232,7 +232,7 @@ export function MealForm({
 
       {/* Macros */}
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-5">
+        <CardContent className="flex flex-col gap-3">
           <Label>Macros per serving (optional)</Label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <MacroInput label="kcal" value={kcal} onChange={setKcal} />
@@ -245,7 +245,7 @@ export function MealForm({
 
       {/* Tags */}
       <Card>
-        <CardContent className="flex flex-col gap-3 pt-5">
+        <CardContent className="flex flex-col gap-3">
           <Label>Tags</Label>
           <div className="flex flex-wrap gap-2">
             {allTags.length === 0 && (
@@ -299,7 +299,7 @@ export function MealForm({
 
       {/* Prep steps */}
       <Card>
-        <CardContent className="flex flex-col gap-1.5 pt-5">
+        <CardContent className="flex flex-col gap-1.5">
           <Label htmlFor="prepSteps">Preparation (optional)</Label>
           <Textarea
             id="prepSteps"

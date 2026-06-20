@@ -74,7 +74,7 @@ export default async function MealDetailPage({
             <CardHeader>
               <CardTitle className="text-sm">Macros per serving</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <MacroSummary
                 macros={{
                   kcal: meal.kcal ?? 0,
@@ -91,7 +91,7 @@ export default async function MealDetailPage({
           <CardHeader>
             <CardTitle className="text-sm">Ingredients</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {meal.ingredients.length === 0 ? (
               <p className="text-sm text-muted-foreground">No ingredients listed.</p>
             ) : (
@@ -112,7 +112,7 @@ export default async function MealDetailPage({
             <CardHeader>
               <CardTitle className="text-sm">Preparation</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <p className="whitespace-pre-wrap text-sm leading-relaxed">
                 {meal.prepSteps}
               </p>

@@ -110,7 +110,7 @@ export default async function MealsPage({
           {meals.map((meal) => (
             <Link key={meal.id} href={`/meals/${meal.id}`}>
               <Card className="h-full transition-colors hover:border-primary/50">
-                <CardContent className="flex h-full flex-col gap-2 pt-4">
+                <CardContent className="flex h-full flex-col gap-2">
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-semibold leading-tight">{meal.name}</p>
                     {meal.kcal != null && (

@@ -21,6 +21,7 @@ import {
 } from "@/app/(app)/profile/actions";
 import { displayToKg, kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { formatHuman } from "@/lib/dates";
+import { parseDecimal } from "@/lib/utils";
 
 export type WeightLog = {
   id: string;
@@ -49,7 +50,7 @@ export function BodyweightPanel({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const val = Number(weight);
+    const val = parseDecimal(weight);
     if (!Number.isFinite(val) || val <= 0) {
       setError("Enter a valid weight.");
       return;
@@ -87,7 +88,7 @@ export function BodyweightPanel({
       <CardHeader>
         <CardTitle className="text-sm">Bodyweight</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 pt-0">
         <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="weight">Weight ({label})</Label>

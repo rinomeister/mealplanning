@@ -25,7 +25,7 @@ export default async function DayPage({
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [entries, meals] = await Promise.all([
+  const [entries, mealRecords, tags] = await Promise.all([
     prisma.planEntry.findMany({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
@@ -38,9 +38,26 @@ export default async function DayPage({
     prisma.meal.findMany({
       where: { userId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        kcal: true,
+        tags: { select: { tagId: true } },
+      },
+    }),
+    prisma.tag.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
     }),
   ]);
+
+  const meals = mealRecords.map((m) => ({
+    id: m.id,
+    name: m.name,
+    kcal: m.kcal,
+    tagIds: m.tags.map((t) => t.tagId),
+  }));
 
   const counted = entries.filter((e) => e.status !== "SKIPPED");
   const totals = sumEntries(
@@ -80,7 +97,7 @@ export default async function DayPage({
       </div>
 
       <Card className="mb-4">
-        <CardContent className="pt-4">
+        <CardContent>
           <p className="mb-2 text-xs font-medium text-muted-foreground">
             Day total ({counted.length} meal{counted.length === 1 ? "" : "s"})
           </p>
@@ -93,7 +110,7 @@ export default async function DayPage({
           const slotEntries = bySlot.get(slot) ?? [];
           return (
             <Card key={slot}>
-              <CardContent className="flex flex-col gap-2 pt-4">
+              <CardContent className="flex flex-col gap-2">
                 <p className="text-sm font-semibold">{SLOT_LABELS[slot]}</p>
                 {slotEntries.length > 0 && (
                   <div className="flex flex-col gap-1.5">
@@ -110,7 +127,13 @@ export default async function DayPage({
                     })}
                   </div>
                 )}
-                <AddMealControl date={date} slot={slot} meals={meals} />
+                <AddMealControl
+                  date={date}
+                  slot={slot}
+                  slotLabel={SLOT_LABELS[slot]}
+                  meals={meals}
+                  tags={tags}
+                />
               </CardContent>
             </Card>
           );

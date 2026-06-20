@@ -28,12 +28,17 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters"),
 });
 
+// Normalize a comma decimal separator ("1,5") to a dot before coercion, so
+// locale keyboards that emit a comma still parse correctly.
+const normalizeDecimal = (v: unknown) =>
+  typeof v === "string" ? v.replace(",", ".") : v;
+
 const optionalNumber = z
   .union([z.number(), z.string()])
   .optional()
   .transform((v) => {
     if (v === undefined || v === "" || v === null) return null;
-    const n = typeof v === "number" ? v : Number(v);
+    const n = typeof v === "number" ? v : Number(v.replace(",", "."));
     return Number.isFinite(n) ? n : null;
   });
 
@@ -68,11 +73,13 @@ export const planEntrySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   slot: z.enum(SLOTS),
   mealId: z.string().min(1),
-  servings: z.coerce.number().positive().max(100).default(1),
+  servings: z
+    .preprocess(normalizeDecimal, z.coerce.number().positive().max(100))
+    .default(1),
 });
 
 export const bodyweightSchema = z.object({
-  weightKg: z.coerce.number().positive().max(700),
+  weightKg: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(700)),
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   note: z.string().trim().max(160).optional().transform((v) => v || null),
 });

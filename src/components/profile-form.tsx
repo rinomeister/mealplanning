@@ -46,7 +46,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
       <CardHeader>
         <CardTitle className="text-sm">Profile &amp; goals</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Name</Label>
