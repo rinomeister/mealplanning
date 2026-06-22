@@ -22,10 +22,13 @@ ENV NODE_OPTIONS=--max-old-space-size=1536
 RUN npm run build
 
 # --- Production-only dependencies ---
-# Derive from `deps` and prune dev deps instead of a second full `npm ci`.
-# This avoids two heavy installs running in parallel, which halves peak build
-# memory on the 2 GB VPS (and saves ~2 min).
-FROM deps AS proddeps
+# Derive from `builder` (not `deps`) so this stage waits for `next build` to
+# finish before pruning. Deriving from `deps` lets BuildKit run the prune in
+# PARALLEL with `next build`, and the two together OOM-kill the 2 GB VPS
+# (exit 255, log cut off mid-step). Serializing keeps peak memory = the build
+# alone. Pruning still removes dev deps; `next build`'s output lives in the
+# `builder` stage's .next, which the runner copies separately.
+FROM builder AS proddeps
 RUN npm prune --omit=dev
 
 # --- Runtime image ---
