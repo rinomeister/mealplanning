@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   LayoutDashboard,
+  ScanBarcode,
   ShoppingCart,
   User,
   UtensilsCrossed,
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/meals", label: "Meals", icon: UtensilsCrossed },
+  { href: "/scan", label: "Scan", icon: ScanBarcode },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/shopping", label: "Shopping", icon: ShoppingCart },
   { href: "/profile", label: "Profile", icon: User },
@@ -54,7 +56,7 @@ export function MobileNav() {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-5">
+      <div className="mx-auto grid max-w-lg grid-cols-6">
         {NAV.map(({ href, label, icon: Icon, exact }) => {
           const active = isActive(pathname, href, exact);
           return (
