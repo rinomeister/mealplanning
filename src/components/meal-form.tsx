@@ -28,6 +28,7 @@ export type MealFormInitial = {
   protein: string;
   fat: string;
   carbs: string;
+  sugar: string;
   fiber: string;
   ingredients: IngredientRow[];
   tagIds: string[];
@@ -53,6 +54,7 @@ export function MealForm({
   const [protein, setProtein] = useState(initial?.protein ?? "");
   const [fat, setFat] = useState(initial?.fat ?? "");
   const [carbs, setCarbs] = useState(initial?.carbs ?? "");
+  const [sugar, setSugar] = useState(initial?.sugar ?? "");
   const [fiber, setFiber] = useState(initial?.fiber ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
     initial?.ingredients?.length ? initial.ingredients : [{ ...emptyRow }],
@@ -127,6 +129,7 @@ export function MealForm({
       protein,
       fat,
       carbs,
+      sugar,
       fiber,
       ingredients: cleanIngredients,
       tagIds: Array.from(selected),
@@ -237,11 +240,12 @@ export function MealForm({
       <Card>
         <CardContent className="flex flex-col gap-3">
           <Label>Macros per serving (optional)</Label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <MacroInput label="kcal" value={kcal} onChange={setKcal} />
             <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
             <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
             <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
+            <MacroInput label="Sugar (g)" value={sugar} onChange={setSugar} />
             <MacroInput label="Fiber (g)" value={fiber} onChange={setFiber} />
           </div>
         </CardContent>

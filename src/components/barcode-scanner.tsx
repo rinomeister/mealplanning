@@ -22,6 +22,7 @@ function toMacros(m: MealMacros): Macros {
     protein: m.protein ?? 0,
     fat: m.fat ?? 0,
     carbs: m.carbs ?? 0,
+    sugar: m.sugar ?? 0,
     fiber: m.fiber ?? 0,
   };
 }

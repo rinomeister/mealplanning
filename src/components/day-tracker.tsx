@@ -74,6 +74,7 @@ const MACRO_FIELDS: MacroField[] = [
   { key: "protein", label: "Protein g" },
   { key: "fat", label: "Fat g" },
   { key: "carbs", label: "Carbs g" },
+  { key: "sugar", label: "Sugar g" },
   { key: "fiber", label: "Fiber g" },
 ];
 
@@ -83,6 +84,7 @@ function hasAnyMacro(m: MealMacros): boolean {
     m.protein != null ||
     m.fat != null ||
     m.carbs != null ||
+    m.sugar != null ||
     m.fiber != null
   );
 }
@@ -119,6 +121,7 @@ function ScanLogDialog({
     protein: null,
     fat: null,
     carbs: null,
+    sugar: null,
     fiber: null,
   });
 
@@ -179,7 +182,7 @@ function ScanLogDialog({
           setBrand(null);
           setServingLabel(null);
           setServingGrams(null);
-          setPer100g({ kcal: null, protein: null, fat: null, carbs: null, fiber: null });
+          setPer100g({ kcal: null, protein: null, fat: null, carbs: null, sugar: null, fiber: null });
           setEditName("");
           setEditServingGrams("");
           setEditMacros({});
@@ -202,6 +205,7 @@ function ScanLogDialog({
       protein: toStr(per100g.protein),
       fat: toStr(per100g.fat),
       carbs: toStr(per100g.carbs),
+      sugar: toStr(per100g.sugar),
       fiber: toStr(per100g.fiber),
     });
     setEditing(true);
@@ -219,6 +223,7 @@ function ScanLogDialog({
       protein: n("protein"),
       fat: n("fat"),
       carbs: n("carbs"),
+      sugar: n("sugar"),
       fiber: n("fiber"),
     };
   }
@@ -241,6 +246,7 @@ function ScanLogDialog({
           protein: nextMacros.protein,
           fat: nextMacros.fat,
           carbs: nextMacros.carbs,
+          sugar: nextMacros.sugar,
           fiber: nextMacros.fiber,
         });
         if (res.ok) {
@@ -281,6 +287,7 @@ function ScanLogDialog({
         protein: per100g.protein,
         fat: per100g.fat,
         carbs: per100g.carbs,
+        sugar: per100g.sugar,
         fiber: per100g.fiber,
         grams: g,
       });
@@ -449,6 +456,7 @@ function ScanLogDialog({
                       protein: per100g.protein ?? 0,
                       fat: per100g.fat ?? 0,
                       carbs: per100g.carbs ?? 0,
+                      sugar: per100g.sugar ?? 0,
                       fiber: per100g.fiber ?? 0,
                     }}
                   />

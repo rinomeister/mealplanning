@@ -29,10 +29,10 @@ export default async function DashboardPage() {
       where: { userId, date: keyToDbDate(today), status: { not: "SKIPPED" } },
       include: {
         meal: {
-          select: { kcal: true, protein: true, fat: true, carbs: true, fiber: true },
+          select: { kcal: true, protein: true, fat: true, carbs: true, sugar: true, fiber: true },
         },
         product: {
-          select: { kcal: true, protein: true, fat: true, carbs: true, fiber: true },
+          select: { kcal: true, protein: true, fat: true, carbs: true, sugar: true, fiber: true },
         },
       },
     }),
@@ -57,6 +57,7 @@ export default async function DashboardPage() {
         targetProtein: true,
         targetFat: true,
         targetCarbs: true,
+        targetSugar: true,
         targetFiber: true,
       },
     }),
@@ -72,6 +73,7 @@ export default async function DashboardPage() {
             protein: e.meal.protein,
             fat: e.meal.fat,
             carbs: e.meal.carbs,
+            sugar: e.meal.sugar,
             fiber: e.meal.fiber,
           }
         : null,
@@ -81,6 +83,7 @@ export default async function DashboardPage() {
             protein: e.product.protein,
             fat: e.product.fat,
             carbs: e.product.carbs,
+            sugar: e.product.sugar,
             fiber: e.product.fiber,
           }
         : null,
@@ -137,6 +140,7 @@ export default async function DashboardPage() {
                     protein: dbUser.targetProtein,
                     fat: dbUser.targetFat,
                     carbs: dbUser.targetCarbs,
+                    sugar: dbUser.targetSugar,
                     fiber: dbUser.targetFiber,
                   }}
                 />

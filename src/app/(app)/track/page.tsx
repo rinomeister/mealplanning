@@ -22,11 +22,19 @@ type MacroCols = {
   protein: number | null;
   fat: number | null;
   carbs: number | null;
+  sugar: number | null;
   fiber: number | null;
 };
 
 function toMealMacros(m: MacroCols): MealMacros {
-  return { kcal: m.kcal, protein: m.protein, fat: m.fat, carbs: m.carbs, fiber: m.fiber };
+  return {
+    kcal: m.kcal,
+    protein: m.protein,
+    fat: m.fat,
+    carbs: m.carbs,
+    sugar: m.sugar,
+    fiber: m.fiber,
+  };
 }
 
 function hasMacros(m: MacroCols): boolean {
@@ -35,6 +43,7 @@ function hasMacros(m: MacroCols): boolean {
     m.protein != null ||
     m.fat != null ||
     m.carbs != null ||
+    m.sugar != null ||
     m.fiber != null
   );
 }
@@ -56,6 +65,7 @@ export default async function TrackPage({
         targetProtein: true,
         targetFat: true,
         targetCarbs: true,
+        targetSugar: true,
         targetFiber: true,
       },
     }),
@@ -71,6 +81,7 @@ export default async function TrackPage({
             protein: true,
             fat: true,
             carbs: true,
+            sugar: true,
             fiber: true,
           },
         },
@@ -82,6 +93,7 @@ export default async function TrackPage({
             protein: true,
             fat: true,
             carbs: true,
+            sugar: true,
             fiber: true,
           },
         },
@@ -126,6 +138,7 @@ export default async function TrackPage({
     protein: user?.targetProtein ?? null,
     fat: user?.targetFat ?? null,
     carbs: user?.targetCarbs ?? null,
+    sugar: user?.targetSugar ?? null,
     fiber: user?.targetFiber ?? null,
   };
 

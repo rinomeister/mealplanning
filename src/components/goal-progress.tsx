@@ -6,6 +6,7 @@ const ITEMS: { key: keyof Macros; label: string; kind: "kcal" | "g" }[] = [
   { key: "protein", label: "Protein", kind: "g" },
   { key: "fat", label: "Fat", kind: "g" },
   { key: "carbs", label: "Carbs", kind: "g" },
+  { key: "sugar", label: "Sugar", kind: "g" },
   { key: "fiber", label: "Fiber", kind: "g" },
 ];
 
@@ -21,7 +22,7 @@ export function GoalProgress({
   targets: Partial<Record<keyof Macros, number | null>>;
 }) {
   return (
-    <div className="grid grid-cols-5 gap-1.5">
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
       {ITEMS.map(({ key, label, kind }) => {
         const consumed = totals[key];
         const target = targets[key] ?? null;

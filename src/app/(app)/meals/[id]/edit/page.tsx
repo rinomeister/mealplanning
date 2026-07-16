@@ -42,6 +42,7 @@ export default async function EditMealPage({
     protein: numToStr(meal.protein),
     fat: numToStr(meal.fat),
     carbs: numToStr(meal.carbs),
+    sugar: numToStr(meal.sugar),
     fiber: numToStr(meal.fiber),
     ingredients: meal.ingredients.map((ing) => ({
       name: ing.name,

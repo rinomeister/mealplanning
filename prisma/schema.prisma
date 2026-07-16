@@ -20,6 +20,7 @@ model User {
   targetProtein Int?
   targetFat     Int?
   targetCarbs   Int?
+  targetSugar   Int?
   targetFiber   Int?
   units         Units    @default(METRIC)
 
@@ -44,6 +45,7 @@ model Meal {
   protein      Float? // grams
   fat          Float?
   carbs        Float?
+  sugar        Float?
   fiber        Float?
 
   ingredients Ingredient[]
@@ -129,6 +131,7 @@ model Product {
   protein      Float?
   fat          Float?
   carbs        Float?
+  sugar        Float?
   fiber        Float?
   source       String  @default("openfoodfacts") // "user" once hand-edited
 

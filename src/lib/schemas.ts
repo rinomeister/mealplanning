@@ -57,6 +57,7 @@ export const mealSchema = z.object({
   protein: optionalNumber,
   fat: optionalNumber,
   carbs: optionalNumber,
+  sugar: optionalNumber,
   fiber: optionalNumber,
   ingredients: z.array(ingredientSchema).max(100).default([]),
   tagIds: z.array(z.string()).default([]),
@@ -90,6 +91,7 @@ export const productMacrosSchema = z.object({
   protein: optionalNumber,
   fat: optionalNumber,
   carbs: optionalNumber,
+  sugar: optionalNumber,
   fiber: optionalNumber,
 });
 
@@ -119,6 +121,7 @@ export const profileSchema = z.object({
   targetProtein: optionalNumber,
   targetFat: optionalNumber,
   targetCarbs: optionalNumber,
+  targetSugar: optionalNumber,
   targetFiber: optionalNumber,
   units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
 });

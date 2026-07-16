@@ -34,6 +34,7 @@ export function productRowToResult(row: {
   protein: number | null;
   fat: number | null;
   carbs: number | null;
+  sugar: number | null;
   fiber: number | null;
   source: string;
 }): BarcodeLookupResult {
@@ -49,6 +50,7 @@ export function productRowToResult(row: {
       protein: row.protein,
       fat: row.fat,
       carbs: row.carbs,
+      sugar: row.sugar,
       fiber: row.fiber,
     },
     perServing: null,
@@ -78,6 +80,7 @@ function macrosFrom(nutriments: OffNutriments, suffix: string): MealMacros {
     protein: num(nutriments, `proteins${suffix}`),
     fat: num(nutriments, `fat${suffix}`),
     carbs: num(nutriments, `carbohydrates${suffix}`),
+    sugar: num(nutriments, `sugars${suffix}`),
     fiber: num(nutriments, `fiber${suffix}`),
   };
 }
@@ -89,6 +92,7 @@ function hasAnyMacro(m: MealMacros): boolean {
     m.protein != null ||
     m.fat != null ||
     m.carbs != null ||
+    m.sugar != null ||
     m.fiber != null
   );
 }
@@ -110,6 +114,7 @@ function per100gFromServing(perServing: MealMacros, servingGrams: number): MealM
     protein: perServing.protein != null ? perServing.protein * f : null,
     fat: perServing.fat != null ? perServing.fat * f : null,
     carbs: perServing.carbs != null ? perServing.carbs * f : null,
+    sugar: perServing.sugar != null ? perServing.sugar * f : null,
     fiber: perServing.fiber != null ? perServing.fiber * f : null,
   };
 }

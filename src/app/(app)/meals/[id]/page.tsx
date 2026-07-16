@@ -35,6 +35,7 @@ export default async function MealDetailPage({
     meal.protein != null ||
     meal.fat != null ||
     meal.carbs != null ||
+    meal.sugar != null ||
     meal.fiber != null;
 
   return (
@@ -82,6 +83,7 @@ export default async function MealDetailPage({
                   protein: meal.protein ?? 0,
                   fat: meal.fat ?? 0,
                   carbs: meal.carbs ?? 0,
+                  sugar: meal.sugar ?? 0,
                   fiber: meal.fiber ?? 0,
                 }}
               />

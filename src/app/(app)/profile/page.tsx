@@ -29,6 +29,7 @@ export default async function ProfilePage() {
     targetProtein: numToStr(user.targetProtein),
     targetFat: numToStr(user.targetFat),
     targetCarbs: numToStr(user.targetCarbs),
+    targetSugar: numToStr(user.targetSugar),
     targetFiber: numToStr(user.targetFiber),
     units: user.units as UnitSystem,
   };

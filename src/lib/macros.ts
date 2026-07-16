@@ -3,16 +3,25 @@ export type Macros = {
   protein: number;
   fat: number;
   carbs: number;
+  sugar: number;
   fiber: number;
 };
 
-export const ZERO_MACROS: Macros = { kcal: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 };
+export const ZERO_MACROS: Macros = {
+  kcal: 0,
+  protein: 0,
+  fat: 0,
+  carbs: 0,
+  sugar: 0,
+  fiber: 0,
+};
 
 export type MealMacros = {
   kcal: number | null;
   protein: number | null;
   fat: number | null;
   carbs: number | null;
+  sugar: number | null;
   fiber: number | null;
 };
 
@@ -23,6 +32,7 @@ export function scaleMacros(meal: MealMacros, servings: number): Macros {
     protein: (meal.protein ?? 0) * servings,
     fat: (meal.fat ?? 0) * servings,
     carbs: (meal.carbs ?? 0) * servings,
+    sugar: (meal.sugar ?? 0) * servings,
     fiber: (meal.fiber ?? 0) * servings,
   };
 }
@@ -38,6 +48,7 @@ export function addMacros(a: Macros, b: Macros): Macros {
     protein: a.protein + b.protein,
     fat: a.fat + b.fat,
     carbs: a.carbs + b.carbs,
+    sugar: a.sugar + b.sugar,
     fiber: a.fiber + b.fiber,
   };
 }

@@ -24,6 +24,7 @@ export async function updateProfileAction(input: unknown): Promise<Result> {
       targetProtein: d.targetProtein != null ? Math.round(d.targetProtein) : null,
       targetFat: d.targetFat != null ? Math.round(d.targetFat) : null,
       targetCarbs: d.targetCarbs != null ? Math.round(d.targetCarbs) : null,
+      targetSugar: d.targetSugar != null ? Math.round(d.targetSugar) : null,
       targetFiber: d.targetFiber != null ? Math.round(d.targetFiber) : null,
       units: d.units,
     },
