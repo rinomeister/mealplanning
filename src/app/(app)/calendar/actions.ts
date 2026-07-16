@@ -45,6 +45,7 @@ export async function addPlanEntryAction(input: {
 
   revalidatePath(`/calendar/${date}`);
   revalidatePath("/calendar");
+  revalidatePath("/track");
   return { ok: true };
 }
 
@@ -59,6 +60,7 @@ export async function removePlanEntryAction(id: string): Promise<ActionResult> {
   await prisma.planEntry.delete({ where: { id } });
   revalidatePath(`/calendar/${entry.date.toISOString().slice(0, 10)}`);
   revalidatePath("/calendar");
+  revalidatePath("/track");
   return { ok: true };
 }
 
@@ -76,6 +78,7 @@ export async function setServingsAction(
   });
   if (count === 0) return { ok: false, error: "Entry not found." };
   revalidatePath("/calendar");
+  revalidatePath("/track");
   return { ok: true };
 }
 
@@ -90,5 +93,6 @@ export async function setEntryStatusAction(
   });
   if (count === 0) return { ok: false, error: "Entry not found." };
   revalidatePath("/calendar");
+  revalidatePath("/track");
   return { ok: true };
 }

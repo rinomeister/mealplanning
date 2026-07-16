@@ -6,6 +6,7 @@ const ITEMS: { key: keyof Macros; label: string; kind: "kcal" | "g" }[] = [
   { key: "protein", label: "Protein", kind: "g" },
   { key: "fat", label: "Fat", kind: "g" },
   { key: "carbs", label: "Carbs", kind: "g" },
+  { key: "fiber", label: "Fiber", kind: "g" },
 ];
 
 export function MacroSummary({
@@ -18,19 +19,19 @@ export function MacroSummary({
   className?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-4 gap-2", className)}>
+    <div className={cn("grid grid-cols-5 gap-1.5", className)}>
       {ITEMS.map(({ key, label, kind }) => {
         const target = targets?.[key];
         return (
           <div
             key={key}
-            className="rounded-lg bg-muted/60 px-2 py-2 text-center"
+            className="rounded-lg bg-muted/60 px-1.5 py-2 text-center"
           >
-            <p className="text-base font-semibold leading-tight">
+            <p className="text-sm font-semibold leading-tight sm:text-base">
               {fmtMacro(macros[key], kind)}
               {kind === "g" && <span className="text-xs font-normal">g</span>}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground sm:text-[11px]">
               {label}
               {target ? ` / ${Math.round(target)}` : ""}
             </p>

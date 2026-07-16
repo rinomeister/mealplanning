@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   LayoutDashboard,
-  ScanBarcode,
+  NotebookPen,
   ShoppingCart,
   User,
   UtensilsCrossed,
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/meals", label: "Meals", icon: UtensilsCrossed },
-  { href: "/scan", label: "Scan", icon: ScanBarcode },
+  { href: "/track", label: "Today", icon: NotebookPen },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/shopping", label: "Shopping", icon: ShoppingCart },
   { href: "/profile", label: "Profile", icon: User },

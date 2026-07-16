@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { lookupBarcode } from "@/lib/barcode";
+import { lookupBarcode, productRowToResult } from "@/lib/barcode";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,13 @@ export async function GET(
       { found: false, code, error: "Invalid barcode." },
       { status: 400 },
     );
+  }
+
+  // Our own database wins: a product cached here may carry user-corrected macros
+  // that OFF doesn't have. Fall back to Open Food Facts only when unknown.
+  const existing = await prisma.product.findUnique({ where: { barcode: code } });
+  if (existing) {
+    return NextResponse.json(productRowToResult(existing));
   }
 
   const result = await lookupBarcode(code);

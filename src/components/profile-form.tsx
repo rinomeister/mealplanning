@@ -17,6 +17,7 @@ export type ProfileInitial = {
   targetProtein: string;
   targetFat: string;
   targetCarbs: string;
+  targetFiber: string;
   units: UnitSystem;
 };
 
@@ -81,11 +82,12 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
 
           <div>
             <p className="mb-2 text-sm font-medium">Daily targets (optional)</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Field label="kcal" value={form.targetKcal} onChange={(v) => set("targetKcal", v)} />
               <Field label="Protein g" value={form.targetProtein} onChange={(v) => set("targetProtein", v)} />
               <Field label="Fat g" value={form.targetFat} onChange={(v) => set("targetFat", v)} />
               <Field label="Carbs g" value={form.targetCarbs} onChange={(v) => set("targetCarbs", v)} />
+              <Field label="Fiber g" value={form.targetFiber} onChange={(v) => set("targetFiber", v)} />
             </div>
           </div>
 

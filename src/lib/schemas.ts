@@ -34,7 +34,7 @@ const normalizeDecimal = (v: unknown) =>
   typeof v === "string" ? v.replace(",", ".") : v;
 
 const optionalNumber = z
-  .union([z.number(), z.string()])
+  .union([z.number(), z.string(), z.null()])
   .optional()
   .transform((v) => {
     if (v === undefined || v === "" || v === null) return null;
@@ -57,6 +57,7 @@ export const mealSchema = z.object({
   protein: optionalNumber,
   fat: optionalNumber,
   carbs: optionalNumber,
+  fiber: optionalNumber,
   ingredients: z.array(ingredientSchema).max(100).default([]),
   tagIds: z.array(z.string()).default([]),
 });
@@ -78,6 +79,33 @@ export const planEntrySchema = z.object({
     .default(1),
 });
 
+// A scanned product, macros stored per 100 g/ml. Backs the "edit macros" form.
+export const productMacrosSchema = z.object({
+  barcode: z.string().regex(/^\d{6,14}$/, "Invalid barcode"),
+  name: z.string().trim().min(1, "Name is required").max(200),
+  brand: z.string().trim().max(120).nullish().transform((v) => v || null),
+  servingLabel: z.string().trim().max(60).nullish().transform((v) => v || null),
+  servingGrams: optionalNumber,
+  kcal: optionalNumber,
+  protein: optionalNumber,
+  fat: optionalNumber,
+  carbs: optionalNumber,
+  fiber: optionalNumber,
+});
+
+export type ProductMacrosInput = z.infer<typeof productMacrosSchema>;
+export type ProductMacrosInputRaw = z.input<typeof productMacrosSchema>;
+
+// Logging a scanned product into a day+slot: the product payload plus where and
+// how much (grams) was eaten.
+export const logProductSchema = productMacrosSchema.extend({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  slot: z.enum(SLOTS),
+  grams: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(100000)),
+});
+
+export type LogProductInputRaw = z.input<typeof logProductSchema>;
+
 export const bodyweightSchema = z.object({
   weightKg: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(700)),
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
@@ -91,5 +119,6 @@ export const profileSchema = z.object({
   targetProtein: optionalNumber,
   targetFat: optionalNumber,
   targetCarbs: optionalNumber,
+  targetFiber: optionalNumber,
   units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
 });

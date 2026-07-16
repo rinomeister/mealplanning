@@ -34,7 +34,8 @@ export default async function MealDetailPage({
     meal.kcal != null ||
     meal.protein != null ||
     meal.fat != null ||
-    meal.carbs != null;
+    meal.carbs != null ||
+    meal.fiber != null;
 
   return (
     <>
@@ -81,6 +82,7 @@ export default async function MealDetailPage({
                   protein: meal.protein ?? 0,
                   fat: meal.fat ?? 0,
                   carbs: meal.carbs ?? 0,
+                  fiber: meal.fiber ?? 0,
                 }}
               />
             </CardContent>

@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { MacroSummary } from "@/components/macro-summary";
 import { addDaysKey, keyToDbDate, todayKey } from "@/lib/dates";
-import { sumEntries } from "@/lib/macros";
+import { sumDayEntries } from "@/lib/macros";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,10 @@ export default async function DashboardPage() {
       where: { userId, date: keyToDbDate(today), status: { not: "SKIPPED" } },
       include: {
         meal: {
-          select: { kcal: true, protein: true, fat: true, carbs: true },
+          select: { kcal: true, protein: true, fat: true, carbs: true, fiber: true },
+        },
+        product: {
+          select: { kcal: true, protein: true, fat: true, carbs: true, fiber: true },
         },
       },
     }),
@@ -54,12 +57,34 @@ export default async function DashboardPage() {
         targetProtein: true,
         targetFat: true,
         targetCarbs: true,
+        targetFiber: true,
       },
     }),
   ]);
 
-  const totals = sumEntries(
-    todayEntries.map((e) => ({ servings: e.servings, meal: e.meal })),
+  const totals = sumDayEntries(
+    todayEntries.map((e) => ({
+      servings: e.servings,
+      grams: e.grams,
+      meal: e.meal
+        ? {
+            kcal: e.meal.kcal,
+            protein: e.meal.protein,
+            fat: e.meal.fat,
+            carbs: e.meal.carbs,
+            fiber: e.meal.fiber,
+          }
+        : null,
+      product: e.product
+        ? {
+            kcal: e.product.kcal,
+            protein: e.product.protein,
+            fat: e.product.fat,
+            carbs: e.product.carbs,
+            fiber: e.product.fiber,
+          }
+        : null,
+    })),
   );
 
   const units = dbUser.units as UnitSystem;
@@ -112,6 +137,7 @@ export default async function DashboardPage() {
                     protein: dbUser.targetProtein,
                     fat: dbUser.targetFat,
                     carbs: dbUser.targetCarbs,
+                    fiber: dbUser.targetFiber,
                   }}
                 />
               </>

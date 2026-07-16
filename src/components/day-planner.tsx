@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Loader2, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, Check, Loader2, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn, parseDecimal } from "@/lib/utils";
@@ -13,19 +13,31 @@ import {
   setEntryStatusAction,
   setServingsAction,
 } from "@/app/(app)/calendar/actions";
+import { setGramsAction } from "@/app/(app)/track/actions";
 
+/**
+ * A rendered day entry — either a prebuilt meal (scaled by `servings`) or a
+ * scanned product (scaled by `grams`). `kcalBasis` is per-serving for meals and
+ * per-100g for products; `hasMacros` is false when the underlying item carries
+ * no nutrition (shown with a warning and excluded from day totals upstream).
+ */
 export type DayEntry = {
   id: string;
-  mealId: string;
-  mealName: string;
+  kind: "meal" | "product";
+  name: string;
+  href: string | null;
   servings: number;
+  grams: number | null;
   status: "PLANNED" | "EATEN" | "SKIPPED";
-  kcalPerServing: number | null;
+  kcalBasis: number | null;
+  hasMacros: boolean;
 };
 
 export function PlanEntryRow({ entry }: { entry: DayEntry }) {
   const [isPending, startTransition] = useTransition();
-  const [servings, setServings] = useState(String(entry.servings));
+  const isProduct = entry.kind === "product";
+  const current = isProduct ? entry.grams ?? 0 : entry.servings;
+  const [qty, setQty] = useState(String(current));
   const skipped = entry.status === "SKIPPED";
 
   function run(fn: () => Promise<unknown>) {
@@ -34,19 +46,24 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
     });
   }
 
-  function commitServings() {
-    const n = parseDecimal(servings);
+  function commitQty() {
+    const n = parseDecimal(qty);
     if (!Number.isFinite(n) || n <= 0) {
-      setServings(String(entry.servings));
+      setQty(String(current));
       return;
     }
-    if (n === entry.servings) return;
-    run(() => setServingsAction(entry.id, n));
+    if (n === current) return;
+    run(() =>
+      isProduct ? setGramsAction(entry.id, n) : setServingsAction(entry.id, n),
+    );
   }
 
-  const kcal =
-    entry.kcalPerServing != null
-      ? fmtMacro(entry.kcalPerServing * entry.servings, "kcal")
+  const scaledKcal =
+    entry.kcalBasis != null
+      ? fmtMacro(
+          entry.kcalBasis * (isProduct ? current / 100 : current),
+          "kcal",
+        )
       : null;
 
   return (
@@ -69,32 +86,50 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
         aria-label="Ate this"
         title={skipped ? "Marked as not eaten" : "Counts toward the day"}
       />
-      <Link
-        href={`/meals/${entry.mealId}`}
-        className={cn(
-          "min-w-0 flex-1 truncate text-sm hover:underline",
-          skipped && "line-through",
-        )}
-      >
-        {entry.mealName}
-      </Link>
+      {entry.href ? (
+        <Link
+          href={entry.href}
+          className={cn(
+            "min-w-0 flex-1 truncate text-sm hover:underline",
+            skipped && "line-through",
+          )}
+        >
+          {entry.name}
+        </Link>
+      ) : (
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-sm",
+            skipped && "line-through",
+          )}
+        >
+          {entry.name}
+        </span>
+      )}
+      {!entry.hasMacros && (
+        <AlertTriangle
+          className="size-4 shrink-0 text-amber-500"
+          aria-label="No macros — not counted"
+        />
+      )}
       <div className="flex items-center gap-1">
-        <span className="text-xs text-muted-foreground">×</span>
+        {!isProduct && <span className="text-xs text-muted-foreground">×</span>}
         <Input
-          value={servings}
-          onChange={(e) => setServings(e.target.value)}
-          onBlur={commitServings}
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          onBlur={commitQty}
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
           inputMode="decimal"
-          className="h-7 w-12 px-1 text-center text-xs"
-          aria-label="Servings"
+          className="h-7 w-14 px-1 text-center text-xs"
+          aria-label={isProduct ? "Grams" : "Servings"}
         />
+        {isProduct && <span className="text-xs text-muted-foreground">g</span>}
       </div>
-      {kcal && (
+      {scaledKcal && (
         <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">
-          {kcal} kcal
+          {scaledKcal} kcal
         </span>
       )}
       <button
@@ -164,7 +199,7 @@ export function AddMealControl({
   );
 }
 
-function MealPickerDialog({
+export function MealPickerDialog({
   date,
   slot,
   slotLabel,
@@ -305,9 +340,13 @@ function MealPickerDialog({
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{m.name}</p>
-                        {m.kcal != null && (
+                        {m.kcal != null ? (
                           <p className="text-xs text-muted-foreground">
                             {Math.round(m.kcal)} kcal
+                          </p>
+                        ) : (
+                          <p className="flex items-center gap-1 text-xs text-amber-600">
+                            <AlertTriangle className="size-3" /> No macros
                           </p>
                         )}
                       </div>

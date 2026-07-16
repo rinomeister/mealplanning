@@ -1,38 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BrowserMultiFormatOneDReader,
-  type IScannerControls,
-} from "@zxing/browser";
-import { Camera, Loader2, ScanBarcode, X } from "lucide-react";
+import { useCallback, useState } from "react";
+import { ScanBarcode, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MacroSummary } from "@/components/macro-summary";
-import { cn } from "@/lib/utils";
+import { BarcodeCamera } from "@/components/barcode-camera";
 import type { BarcodeLookupResult } from "@/lib/barcode";
 import type { Macros, MealMacros } from "@/lib/macros";
 
 type FoundResult = Extract<BarcodeLookupResult, { found: true }>;
 
-type Status =
-  | "idle"
-  | "starting"
-  | "scanning"
-  | "looking-up"
-  | "result"
-  | "not-found"
-  | "error";
+type Status = "idle" | "looking-up" | "result" | "not-found" | "error";
 
-/** Fill in missing macro fields with 0 so MacroSummary (which needs non-null) can render. */
+/** Fill in missing macro fields with 0 so MacroSummary (needs non-null) renders. */
 function toMacros(m: MealMacros): Macros {
   return {
     kcal: m.kcal ?? 0,
     protein: m.protein ?? 0,
     fat: m.fat ?? 0,
     carbs: m.carbs ?? 0,
+    fiber: m.fiber ?? 0,
   };
 }
 
@@ -43,95 +33,39 @@ export function BarcodeScanner() {
   const [lastCode, setLastCode] = useState<string>("");
   const [manualCode, setManualCode] = useState<string>("");
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
-  // Guards against the continuous scanner firing multiple times before we stop it.
-  const handlingRef = useRef(false);
-
-  const stopCamera = useCallback(() => {
-    controlsRef.current?.stop();
-    controlsRef.current = null;
-    const stream = videoRef.current?.srcObject as MediaStream | null;
-    stream?.getTracks().forEach((t) => t.stop());
-    if (videoRef.current) videoRef.current.srcObject = null;
+  const lookup = useCallback(async (code: string) => {
+    const trimmed = code.trim();
+    if (!/^\d{6,14}$/.test(trimmed)) {
+      setStatus("error");
+      setMessage("That doesn't look like a valid barcode.");
+      return;
+    }
+    setLastCode(trimmed);
+    setStatus("looking-up");
+    setMessage("");
+    try {
+      const res = await fetch(`/api/barcode/${trimmed}`);
+      const data: BarcodeLookupResult = await res.json();
+      if (data.found) {
+        setResult(data);
+        setStatus("result");
+      } else {
+        setStatus("not-found");
+        setMessage(data.error ?? "");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Lookup failed. Check your connection and try again.");
+    }
   }, []);
 
-  // Ensure the camera is released when the component unmounts (e.g. navigating away).
-  useEffect(() => stopCamera, [stopCamera]);
-
-  const lookup = useCallback(
-    async (code: string) => {
-      const trimmed = code.trim();
-      if (!/^\d{6,14}$/.test(trimmed)) {
-        setStatus("error");
-        setMessage("That doesn't look like a valid barcode.");
-        return;
-      }
-      setLastCode(trimmed);
-      setStatus("looking-up");
-      setMessage("");
-      try {
-        const res = await fetch(`/api/barcode/${trimmed}`);
-        const data: BarcodeLookupResult = await res.json();
-        if (data.found) {
-          setResult(data);
-          setStatus("result");
-        } else {
-          setStatus("not-found");
-          setMessage(data.error ?? "");
-        }
-      } catch {
-        setStatus("error");
-        setMessage("Lookup failed. Check your connection and try again.");
-      }
-    },
-    [],
-  );
-
-  const startCamera = useCallback(async () => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
-    setStatus("starting");
-    setMessage("");
-    handlingRef.current = false;
-    const reader = new BrowserMultiFormatOneDReader();
-    try {
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: "environment" } },
-        videoEl,
-        (decoded) => {
-          if (!decoded || handlingRef.current) return;
-          handlingRef.current = true;
-          stopCamera();
-          void lookup(decoded.getText());
-        },
-      );
-      controlsRef.current = controls;
-      setStatus("scanning");
-    } catch (err) {
-      const denied =
-        err instanceof DOMException &&
-        (err.name === "NotAllowedError" || err.name === "SecurityError");
-      setStatus("error");
-      setMessage(
-        denied
-          ? "Camera permission was denied. Enter the barcode manually below."
-          : "Couldn't access a camera. Enter the barcode manually below.",
-      );
-    }
-  }, [lookup, stopCamera]);
-
   const reset = useCallback(() => {
-    stopCamera();
-    handlingRef.current = false;
     setResult(null);
     setMessage("");
     setLastCode("");
     setManualCode("");
     setStatus("idle");
-  }, [stopCamera]);
-
-  const cameraLive = status === "starting" || status === "scanning";
+  }, []);
 
   return (
     <Card>
@@ -142,47 +76,8 @@ export function BarcodeScanner() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-0">
-        {/* Camera preview. The <video> stays mounted (hidden when idle) so its ref
-            is available the instant we start scanning — otherwise the stream would
-            attach to a detached element and never display. */}
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-lg bg-black",
-            !cameraLive && "hidden",
-          )}
-        >
-          <video
-            ref={videoRef}
-            className="aspect-[4/3] w-full object-cover"
-            playsInline
-            muted
-            autoPlay
-          />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-24 w-4/5 rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="absolute right-2 top-2"
-            onClick={reset}
-          >
-            <X className="size-4" />
-            Stop
-          </Button>
-          {status === "starting" && (
-            <div className="absolute inset-0 flex items-center justify-center text-sm text-white">
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Starting camera…
-            </div>
-          )}
-        </div>
-
-        {status === "scanning" && (
-          <p className="text-center text-sm text-muted-foreground">
-            Point the rear camera at a product barcode.
-          </p>
+        {status !== "result" && status !== "looking-up" && (
+          <BarcodeCamera onDetected={lookup} />
         )}
 
         {status === "looking-up" && (
@@ -242,14 +137,6 @@ export function BarcodeScanner() {
 
         {status === "error" && message && (
           <p className="text-sm text-destructive">{message}</p>
-        )}
-
-        {/* Start-camera button when idle / errored / not-found without live preview. */}
-        {!cameraLive && status !== "result" && status !== "looking-up" && (
-          <Button type="button" onClick={startCamera}>
-            <Camera className="size-4" />
-            Start camera
-          </Button>
         )}
 
         {/* Manual entry — always available, and the way to test without a camera. */}

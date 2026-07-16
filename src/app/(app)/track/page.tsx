@@ -1,17 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
+import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { MacroSummary } from "@/components/macro-summary";
-import {
-  AddMealControl,
-  PlanEntryRow,
-  type DayEntry,
-} from "@/components/day-planner";
+import { GoalProgress } from "@/components/goal-progress";
+import { PlanEntryRow, type DayEntry } from "@/components/day-planner";
+import { AddFoodControl } from "@/components/day-tracker";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
-import { addDaysKey, formatLong, keyToDbDate } from "@/lib/dates";
+import { addDaysKey, formatLong, keyToDbDate, todayKey } from "@/lib/dates";
 import {
   sumDayEntries,
   type EntryForMacros,
@@ -42,16 +39,26 @@ function hasMacros(m: MacroCols): boolean {
   );
 }
 
-export default async function DayPage({
-  params,
+export default async function TrackPage({
+  searchParams,
 }: {
-  params: Promise<{ date: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const userId = await requireUserId();
-  const { date } = await params;
-  if (!DATE_RE.test(date)) notFound();
+  const { date: dateParam } = await searchParams;
+  const date = dateParam && DATE_RE.test(dateParam) ? dateParam : todayKey();
 
-  const [entries, mealRecords, tags] = await Promise.all([
+  const [user, entries, mealRecords, tags] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        targetKcal: true,
+        targetProtein: true,
+        targetFat: true,
+        targetCarbs: true,
+        targetFiber: true,
+      },
+    }),
     prisma.planEntry.findMany({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
@@ -83,12 +90,7 @@ export default async function DayPage({
     prisma.meal.findMany({
       where: { userId },
       orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        kcal: true,
-        tags: { select: { tagId: true } },
-      },
+      select: { id: true, name: true, kcal: true, tags: { select: { tagId: true } } },
     }),
     prisma.tag.findMany({
       where: { userId },
@@ -114,31 +116,48 @@ export default async function DayPage({
     })),
   );
 
+  const uncounted = counted.filter((e) => {
+    const item = e.product ?? e.meal;
+    return !item || !hasMacros(item);
+  }).length;
+
+  const targets = {
+    kcal: user?.targetKcal ?? null,
+    protein: user?.targetProtein ?? null,
+    fat: user?.targetFat ?? null,
+    carbs: user?.targetCarbs ?? null,
+    fiber: user?.targetFiber ?? null,
+  };
+
   const bySlot = new Map<SlotKey, typeof entries>();
   for (const slot of SLOTS) bySlot.set(slot, []);
   for (const e of entries) bySlot.get(e.slot as SlotKey)?.push(e);
 
+  const isToday = date === todayKey();
+
   return (
     <>
+      <PageHeader title="Track" description="Log what you eat and track it against your goals." />
+
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
-          href={`/calendar/${addDaysKey(date, -1)}`}
+          href={`/track?date=${addDaysKey(date, -1)}`}
           className="rounded-lg p-2 hover:bg-muted"
           aria-label="Previous day"
         >
           <ChevronLeft className="size-5" />
         </Link>
         <div className="text-center">
-          <p className="font-semibold">{formatLong(date)}</p>
+          <p className="font-semibold">{isToday ? "Today" : formatLong(date)}</p>
           <Link
-            href="/calendar"
+            href={`/calendar/${date}`}
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
           >
-            <CalendarDays className="size-3" /> Month view
+            <CalendarDays className="size-3" /> Plan this day
           </Link>
         </div>
         <Link
-          href={`/calendar/${addDaysKey(date, 1)}`}
+          href={`/track?date=${addDaysKey(date, 1)}`}
           className="rounded-lg p-2 hover:bg-muted"
           aria-label="Next day"
         >
@@ -149,9 +168,14 @@ export default async function DayPage({
       <Card className="mb-4">
         <CardContent>
           <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Day total ({counted.length} meal{counted.length === 1 ? "" : "s"})
+            Daily goals ({counted.length} item{counted.length === 1 ? "" : "s"})
           </p>
-          <MacroSummary macros={totals} />
+          <GoalProgress totals={totals} targets={targets} />
+          {uncounted > 0 && (
+            <p className="mt-2 text-xs text-amber-600">
+              {uncounted} item{uncounted === 1 ? "" : "s"} have no macros and aren&apos;t counted.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -181,7 +205,7 @@ export default async function DayPage({
                     })}
                   </div>
                 )}
-                <AddMealControl
+                <AddFoodControl
                   date={date}
                   slot={slot}
                   slotLabel={SLOT_LABELS[slot]}

@@ -38,6 +38,7 @@ export async function createMealAction(
         protein: data.protein,
         fat: data.fat,
         carbs: data.carbs,
+        fiber: data.fiber,
         ingredients: {
           create: data.ingredients.map((ing, i) => ({
             name: ing.name,
@@ -85,6 +86,7 @@ export async function updateMealAction(
           protein: data.protein,
           fat: data.fat,
           carbs: data.carbs,
+          fiber: data.fiber,
           ingredients: {
             create: data.ingredients.map((ing, i) => ({
               name: ing.name,

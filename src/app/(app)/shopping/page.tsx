@@ -45,6 +45,8 @@ export default async function ShoppingPage({
     where: {
       userId,
       status: "PLANNED",
+      // Only meal entries carry ingredients; scanned products don't.
+      mealId: { not: null },
       date: { gte: keyToDbDate(start), lte: keyToDbDate(end) },
     },
     select: {
@@ -57,7 +59,10 @@ export default async function ShoppingPage({
     },
   });
 
-  const items = aggregateIngredients(entries);
+  const mealEntries = entries.filter(
+    (e): e is typeof e & { meal: NonNullable<typeof e.meal> } => e.meal !== null,
+  );
+  const items = aggregateIngredients(mealEntries);
 
   const checks = await prisma.shoppingCheck.findMany({
     where: { userId, itemKey: { in: items.map((i) => i.key) } },

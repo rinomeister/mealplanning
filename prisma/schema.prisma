@@ -20,6 +20,7 @@ model User {
   targetProtein Int?
   targetFat     Int?
   targetCarbs   Int?
+  targetFiber   Int?
   units         Units    @default(METRIC)
 
   meals          Meal[]
@@ -43,6 +44,7 @@ model Meal {
   protein      Float? // grams
   fat          Float?
   carbs        Float?
+  fiber        Float?
 
   ingredients Ingredient[]
   tags        MealTag[]
@@ -89,21 +91,51 @@ model MealTag {
   @@index([tagId])
 }
 
+// A day+slot entry. References EITHER a prebuilt meal (scaled by `servings`) or a
+// scanned product (scaled by `grams`). Exactly one of mealId/productId is set —
+// enforced in the server actions, not at the DB level.
 model PlanEntry {
   id        String      @id @default(cuid())
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   date      DateTime    @db.Date
   slot      Slot
-  mealId    String
-  meal      Meal        @relation(fields: [mealId], references: [id], onDelete: Restrict)
-  servings  Float       @default(1)
+  mealId    String?
+  meal      Meal?       @relation(fields: [mealId], references: [id], onDelete: Restrict)
+  productId String?
+  product   Product?    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  servings  Float       @default(1) // used for meal entries
+  grams     Float? // used for product entries
   status    EntryStatus @default(PLANNED)
   position  Int         @default(0)
   createdAt DateTime    @default(now())
 
   @@index([userId, date])
   @@index([mealId])
+  @@index([productId])
+}
+
+// App-wide cache of scanned products, keyed by barcode. Macros are stored per
+// 100 g/ml (canonical). Populated from Open Food Facts on first log and
+// overridable by users (source flips to "user" once hand-edited).
+model Product {
+  id           String  @id @default(cuid())
+  barcode      String  @unique
+  name         String
+  brand        String?
+  servingLabel String? // free text e.g. "30 g"
+  servingGrams Float? // parsed numeric serving for the "1 serving" shortcut
+  kcal         Float? // all per 100 g/ml
+  protein      Float?
+  fat          Float?
+  carbs        Float?
+  fiber        Float?
+  source       String  @default("openfoodfacts") // "user" once hand-edited
+
+  planEntries PlanEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model BodyweightLog {
