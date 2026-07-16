@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MacroSummary } from "@/components/macro-summary";
+import { cn } from "@/lib/utils";
 import type { BarcodeLookupResult } from "@/lib/barcode";
 import type { Macros, MealMacros } from "@/lib/macros";
 
@@ -88,6 +89,8 @@ export function BarcodeScanner() {
   );
 
   const startCamera = useCallback(async () => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
     setStatus("starting");
     setMessage("");
     handlingRef.current = false;
@@ -95,7 +98,7 @@ export function BarcodeScanner() {
     try {
       const controls = await reader.decodeFromConstraints(
         { video: { facingMode: "environment" } },
-        videoRef.current ?? undefined,
+        videoEl,
         (decoded) => {
           if (!decoded || handlingRef.current) return;
           handlingRef.current = true;
@@ -139,37 +142,42 @@ export function BarcodeScanner() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-0">
-        {/* Camera preview — kept mounted while live so the video ref stays attached. */}
-        {cameraLive && (
-          <div className="relative overflow-hidden rounded-lg bg-black">
-            <video
-              ref={videoRef}
-              className="aspect-[4/3] w-full object-cover"
-              playsInline
-              muted
-              autoPlay
-            />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-24 w-4/5 rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="absolute right-2 top-2"
-              onClick={reset}
-            >
-              <X className="size-4" />
-              Stop
-            </Button>
-            {status === "starting" && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-white">
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Starting camera…
-              </div>
-            )}
+        {/* Camera preview. The <video> stays mounted (hidden when idle) so its ref
+            is available the instant we start scanning — otherwise the stream would
+            attach to a detached element and never display. */}
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-lg bg-black",
+            !cameraLive && "hidden",
+          )}
+        >
+          <video
+            ref={videoRef}
+            className="aspect-[4/3] w-full object-cover"
+            playsInline
+            muted
+            autoPlay
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-24 w-4/5 rounded-lg border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
           </div>
-        )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="absolute right-2 top-2"
+            onClick={reset}
+          >
+            <X className="size-4" />
+            Stop
+          </Button>
+          {status === "starting" && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-white">
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Starting camera…
+            </div>
+          )}
+        </div>
 
         {status === "scanning" && (
           <p className="text-center text-sm text-muted-foreground">
