@@ -3,6 +3,7 @@ import { Plus, Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
+import { FoodTabs } from "@/components/food-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export default async function MealsPage({
   return (
     <>
       <PageHeader
-        title="Meals"
+        title="Food"
         description="Your saved meals and recipes."
         action={
           <Link
@@ -48,6 +49,7 @@ export default async function MealsPage({
           </Link>
         }
       />
+      <FoodTabs active="meals" />
 
       <form action="/meals" className="mb-3 flex gap-2">
         <div className="relative flex-1">

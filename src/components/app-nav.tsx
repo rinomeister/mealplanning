@@ -20,12 +20,13 @@ type NavItem = {
   also?: string[];
 };
 
-// Five tabs: iOS tab bars get unreadable past that, and calendar + shopping are
-// two views of the same thing — what you plan to eat and what you must buy for
-// it. They share the "Plan" tab and switch with the segmented control on-page.
+// Five tabs: iOS tab bars get unreadable past that. Two of these are merged
+// sections that switch with an on-page segmented control — "Food" holds meals
+// you cook and single products you eat; "Plan" holds the calendar and the
+// shopping list it feeds.
 const NAV: NavItem[] = [
   { href: "/", label: "Home", icon: LayoutDashboard, exact: true },
-  { href: "/meals", label: "Meals", icon: UtensilsCrossed },
+  { href: "/meals", label: "Food", icon: UtensilsCrossed, also: ["/products"] },
   { href: "/track", label: "Today", icon: NotebookPen },
   { href: "/calendar", label: "Plan", icon: CalendarRange, also: ["/shopping"] },
   { href: "/profile", label: "Profile", icon: User },
