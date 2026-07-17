@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
+import { PlanTabs } from "@/components/plan-tabs";
 import { EmptyState } from "@/components/empty-state";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ShoppingItemRow } from "@/components/shopping-item-row";
@@ -75,9 +75,10 @@ export default async function ShoppingPage({
   return (
     <>
       <PageHeader
-        title="Shopping list"
-        description="Built from your planned (not-yet-eaten) meals."
+        title="Plan"
+        description="Your shopping list, built from planned (not-yet-eaten) meals."
       />
+      <PlanTabs active="shopping" />
 
       {/* Range chips */}
       <div className="mb-3 flex flex-wrap gap-2">
@@ -86,7 +87,7 @@ export default async function ShoppingPage({
             key={r}
             href={`/shopping?range=${r}&start=${start}`}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-medium transition-colors",
               r === range
                 ? "border-transparent bg-primary text-primary-foreground"
                 : "border-border text-muted-foreground hover:bg-muted",

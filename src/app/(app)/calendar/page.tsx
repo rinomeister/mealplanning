@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
+import { PlanTabs } from "@/components/plan-tabs";
 import {
   WEEKDAY_LABELS,
   dbDateToKey,
@@ -58,23 +59,24 @@ export default async function CalendarPage({
 
   return (
     <>
-      <PageHeader title="Calendar" description="Plan your meals by day." />
+      <PageHeader title="Plan" description="Plan your meals by day." />
+      <PlanTabs active="calendar" />
 
       <div className="mb-3 flex items-center justify-between">
         <Link
           href={`/calendar?m=${monthParam(prev.year, prev.month0)}`}
-          className="rounded-lg p-2 hover:bg-muted"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Previous month"
         >
-          <ChevronLeft className="size-5" />
+          <ChevronLeft className="size-6" />
         </Link>
-        <p className="font-semibold">{formatMonthTitle(year, month0)}</p>
+        <p className="text-lg font-semibold">{formatMonthTitle(year, month0)}</p>
         <Link
           href={`/calendar?m=${monthParam(next.year, next.month0)}`}
-          className="rounded-lg p-2 hover:bg-muted"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Next month"
         >
-          <ChevronRight className="size-5" />
+          <ChevronRight className="size-6" />
         </Link>
       </div>
 
