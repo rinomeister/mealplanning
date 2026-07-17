@@ -47,12 +47,24 @@ export const ingredientSchema = z.object({
   qty: optionalNumber,
   unit: z.string().trim().max(24).optional().transform((v) => v || null),
   note: z.string().trim().max(160).optional().transform((v) => v || null),
+  // Present only for scanned ingredients. Macros are per 100 g/ml.
+  barcode: z.string().trim().max(32).nullish().transform((v) => v || null),
+  kcal: optionalNumber,
+  protein: optionalNumber,
+  fat: optionalNumber,
+  carbs: optionalNumber,
+  sugar: optionalNumber,
+  fiber: optionalNumber,
 });
 
 export const mealSchema = z.object({
   name: z.string().trim().min(1, "Meal name is required").max(120),
   prepSteps: z.string().trim().max(8000).optional().transform((v) => v || null),
   servingLabel: z.string().trim().max(60).optional().transform((v) => v || null),
+  serves: z
+    .preprocess(normalizeDecimal, z.coerce.number().positive().max(100))
+    .default(1),
+  macrosManual: z.boolean().default(false),
   kcal: optionalNumber,
   protein: optionalNumber,
   fat: optionalNumber,

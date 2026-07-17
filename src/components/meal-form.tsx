@@ -2,13 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, ScanBarcode, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { MacroSummary } from "@/components/macro-summary";
+import { ScanProductDialog } from "@/components/scan-product-dialog";
+import { cn, parseDecimal } from "@/lib/utils";
+import {
+  addMacros,
+  scaleGrams,
+  ZERO_MACROS,
+  type Macros,
+  type MealMacros,
+} from "@/lib/macros";
 import { TAG_COLORS } from "@/lib/default-tags";
 import {
   createMealAction,
@@ -17,13 +26,23 @@ import {
 } from "@/app/(app)/meals/actions";
 
 type TagItem = { id: string; name: string; color: string | null };
-type IngredientRow = { name: string; qty: string; unit: string; note: string };
+export type IngredientRow = {
+  name: string;
+  qty: string;
+  unit: string;
+  note: string;
+  /** Set when scanned from a barcode; macros are per 100 g/ml, qty is grams. */
+  barcode: string | null;
+  per100g: MealMacros | null;
+};
 
 export type MealFormInitial = {
   id: string;
   name: string;
   prepSteps: string;
   servingLabel: string;
+  serves: string;
+  macrosManual: boolean;
   kcal: string;
   protein: string;
   fat: string;
@@ -34,7 +53,38 @@ export type MealFormInitial = {
   tagIds: string[];
 };
 
-const emptyRow: IngredientRow = { name: "", qty: "", unit: "", note: "" };
+const emptyRow: IngredientRow = {
+  name: "",
+  qty: "",
+  unit: "",
+  note: "",
+  barcode: null,
+  per100g: null,
+};
+
+function hasAnyMacro(m: MealMacros | null): boolean {
+  return (
+    !!m &&
+    (m.kcal != null ||
+      m.protein != null ||
+      m.fat != null ||
+      m.carbs != null ||
+      m.sugar != null ||
+      m.fiber != null)
+  );
+}
+
+function isEmptyRow(r: IngredientRow): boolean {
+  return (
+    r.name.trim() === "" &&
+    r.qty.trim() === "" &&
+    r.unit.trim() === "" &&
+    r.note.trim() === "" &&
+    !r.per100g
+  );
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function MealForm({
   tags,
@@ -49,6 +99,7 @@ export function MealForm({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [servingLabel, setServingLabel] = useState(initial?.servingLabel ?? "");
+  const [serves, setServes] = useState(initial?.serves ?? "1");
   const [prepSteps, setPrepSteps] = useState(initial?.prepSteps ?? "");
   const [kcal, setKcal] = useState(initial?.kcal ?? "");
   const [protein, setProtein] = useState(initial?.protein ?? "");
@@ -56,9 +107,11 @@ export function MealForm({
   const [carbs, setCarbs] = useState(initial?.carbs ?? "");
   const [sugar, setSugar] = useState(initial?.sugar ?? "");
   const [fiber, setFiber] = useState(initial?.fiber ?? "");
+  const [macrosManual, setMacrosManual] = useState(initial?.macrosManual ?? false);
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
     initial?.ingredients?.length ? initial.ingredients : [{ ...emptyRow }],
   );
+  const [scanOpen, setScanOpen] = useState(false);
 
   const [allTags, setAllTags] = useState<TagItem[]>(tags);
   const [selected, setSelected] = useState<Set<string>>(
@@ -78,6 +131,11 @@ export function MealForm({
   function removeRow(i: number) {
     setIngredients((rows) =>
       rows.length === 1 ? [{ ...emptyRow }] : rows.filter((_, idx) => idx !== i),
+    );
+  }
+  function addScannedRow(row: IngredientRow) {
+    setIngredients((rows) =>
+      rows.length === 1 && isEmptyRow(rows[0]) ? [row] : [...rows, row],
     );
   }
 
@@ -108,6 +166,34 @@ export function MealForm({
     setNewTag("");
   }
 
+  // Contribution of one ingredient (per-100g macros × grams/100), or null.
+  function rowMacros(r: IngredientRow): Macros | null {
+    if (!hasAnyMacro(r.per100g)) return null;
+    const g = parseDecimal(r.qty);
+    if (!Number.isFinite(g) || g <= 0) return null;
+    return scaleGrams(r.per100g as MealMacros, g);
+  }
+
+  const scannedRows = ingredients.filter((r) => hasAnyMacro(r.per100g));
+  const hasScanned = scannedRows.length > 0;
+  const servesNum = (() => {
+    const n = parseDecimal(serves);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  })();
+  const scannedTotal = ingredients.reduce<Macros>((acc, r) => {
+    const m = rowMacros(r);
+    return m ? addMacros(acc, m) : acc;
+  }, { ...ZERO_MACROS });
+  const computedPerServing: Macros = {
+    kcal: scannedTotal.kcal / servesNum,
+    protein: scannedTotal.protein / servesNum,
+    fat: scannedTotal.fat / servesNum,
+    carbs: scannedTotal.carbs / servesNum,
+    sugar: scannedTotal.sugar / servesNum,
+    fiber: scannedTotal.fiber / servesNum,
+  };
+  const manualMode = macrosManual || !hasScanned;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -118,19 +204,34 @@ export function MealForm({
         qty: r.qty,
         unit: r.unit.trim(),
         note: r.note.trim(),
+        barcode: r.barcode,
+        kcal: r.per100g?.kcal ?? null,
+        protein: r.per100g?.protein ?? null,
+        fat: r.per100g?.fat ?? null,
+        carbs: r.per100g?.carbs ?? null,
+        sugar: r.per100g?.sugar ?? null,
+        fiber: r.per100g?.fiber ?? null,
       }))
       .filter((r) => r.name.length > 0);
+
+    const macros = manualMode
+      ? { kcal, protein, fat, carbs, sugar, fiber }
+      : {
+          kcal: round2(computedPerServing.kcal),
+          protein: round2(computedPerServing.protein),
+          fat: round2(computedPerServing.fat),
+          carbs: round2(computedPerServing.carbs),
+          sugar: round2(computedPerServing.sugar),
+          fiber: round2(computedPerServing.fiber),
+        };
 
     const payload = {
       name: name.trim(),
       servingLabel,
       prepSteps,
-      kcal,
-      protein,
-      fat,
-      carbs,
-      sugar,
-      fiber,
+      serves,
+      macrosManual: manualMode,
+      ...macros,
       ingredients: cleanIngredients,
       tagIds: Array.from(selected),
     };
@@ -163,14 +264,26 @@ export function MealForm({
               required
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="servingLabel">One serving is… (optional)</Label>
-            <Input
-              id="servingLabel"
-              value={servingLabel}
-              onChange={(e) => setServingLabel(e.target.value)}
-              placeholder="1 bowl"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="servingLabel">One serving is…</Label>
+              <Input
+                id="servingLabel"
+                value={servingLabel}
+                onChange={(e) => setServingLabel(e.target.value)}
+                placeholder="1 bowl"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="serves">Makes … servings</Label>
+              <Input
+                id="serves"
+                value={serves}
+                onChange={(e) => setServes(e.target.value)}
+                inputMode="decimal"
+                placeholder="1"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -185,69 +298,115 @@ export function MealForm({
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {ingredients.map((row, i) => (
-              <div key={i} className="flex flex-col gap-2 rounded-lg border border-border p-2">
-                <div className="flex gap-2">
-                  <Input
-                    aria-label="Quantity"
-                    value={row.qty}
-                    onChange={(e) => updateRow(i, { qty: e.target.value })}
-                    placeholder="500"
-                    inputMode="decimal"
-                    className="w-20"
-                  />
-                  <Input
-                    aria-label="Unit"
-                    value={row.unit}
-                    onChange={(e) => updateRow(i, { unit: e.target.value })}
-                    placeholder="ml"
-                    className="w-20"
-                  />
-                  <Input
-                    aria-label="Ingredient name"
-                    value={row.name}
-                    onChange={(e) => updateRow(i, { name: e.target.value })}
-                    placeholder="milk"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeRow(i)}
-                    aria-label="Remove ingredient"
-                  >
-                    <X />
-                  </Button>
+            {ingredients.map((row, i) => {
+              const contribution = rowMacros(row);
+              return (
+                <div key={i} className="flex flex-col gap-2 rounded-lg border border-border p-2">
+                  <div className="flex gap-2">
+                    <Input
+                      aria-label="Quantity"
+                      value={row.qty}
+                      onChange={(e) => updateRow(i, { qty: e.target.value })}
+                      placeholder="500"
+                      inputMode="decimal"
+                      className="w-20"
+                    />
+                    <Input
+                      aria-label="Unit"
+                      value={row.unit}
+                      onChange={(e) => updateRow(i, { unit: e.target.value })}
+                      placeholder="ml"
+                      className="w-20"
+                    />
+                    <Input
+                      aria-label="Ingredient name"
+                      value={row.name}
+                      onChange={(e) => updateRow(i, { name: e.target.value })}
+                      placeholder="milk"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeRow(i)}
+                      aria-label="Remove ingredient"
+                    >
+                      <X />
+                    </Button>
+                  </div>
+                  {row.per100g ? (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <ScanBarcode className="size-3" /> Scanned
+                      {contribution
+                        ? ` · ${Math.round(contribution.kcal)} kcal`
+                        : " · set a gram amount to count it"}
+                    </p>
+                  ) : (
+                    <Input
+                      aria-label="Note"
+                      value={row.note}
+                      onChange={(e) => updateRow(i, { note: e.target.value })}
+                      placeholder="note (optional, e.g. semi-skimmed)"
+                      className="text-xs"
+                    />
+                  )}
                 </div>
-                <Input
-                  aria-label="Note"
-                  value={row.note}
-                  onChange={(e) => updateRow(i, { note: e.target.value })}
-                  placeholder="note (optional, e.g. semi-skimmed)"
-                  className="text-xs"
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addRow}>
-            <Plus /> Add ingredient
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+              <Plus /> Add ingredient
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setScanOpen(true)}
+            >
+              <ScanBarcode /> Scan ingredient
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Macros */}
+      {/* Nutrition */}
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <Label>Macros per serving (optional)</Label>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <MacroInput label="kcal" value={kcal} onChange={setKcal} />
-            <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
-            <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
-            <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
-            <MacroInput label="Sugar (g)" value={sugar} onChange={setSugar} />
-            <MacroInput label="Fiber (g)" value={fiber} onChange={setFiber} />
-          </div>
+          <Label>Macros per serving</Label>
+
+          {hasScanned && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={macrosManual}
+                onChange={(e) => setMacrosManual(e.target.checked)}
+                className="size-4 accent-[var(--primary)]"
+              />
+              Enter macros manually instead of from scanned ingredients
+            </label>
+          )}
+
+          {manualMode ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <MacroInput label="kcal" value={kcal} onChange={setKcal} />
+              <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
+              <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
+              <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
+              <MacroInput label="Sugar (g)" value={sugar} onChange={setSugar} />
+              <MacroInput label="Fiber (g)" value={fiber} onChange={setFiber} />
+            </div>
+          ) : (
+            <div>
+              <p className="mb-1.5 text-xs text-muted-foreground">
+                Calculated from {scannedRows.length} scanned ingredient
+                {scannedRows.length === 1 ? "" : "s"} ÷ {servesNum} serving
+                {servesNum === 1 ? "" : "s"}
+              </p>
+              <MacroSummary macros={computedPerServing} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -335,6 +494,26 @@ export function MealForm({
           Cancel
         </Button>
       </div>
+
+      {scanOpen && (
+        <ScanProductDialog
+          title="Scan an ingredient"
+          confirmLabel="Add ingredient"
+          gramsLabel="How many grams in the recipe?"
+          onConfirm={(p, grams) => {
+            addScannedRow({
+              name: p.name,
+              qty: String(grams),
+              unit: "g",
+              note: "",
+              barcode: p.barcode,
+              per100g: p.per100g,
+            });
+            return true;
+          }}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
     </form>
   );
 }

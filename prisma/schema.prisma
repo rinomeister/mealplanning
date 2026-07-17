@@ -41,6 +41,11 @@ model Meal {
   name         String
   prepSteps    String? // free text / step list (optional)
   servingLabel String? // describes the 1-serving baseline, e.g. "1 bowl"
+  serves       Float   @default(1) // how many servings the whole recipe yields
+  // Per-serving macros. Either typed in by hand or computed from scanned
+  // ingredients (sum ÷ serves); `macrosManual` records which, so edits restore
+  // the right mode.
+  macrosManual Boolean @default(false)
   kcal         Float?
   protein      Float? // grams
   fat          Float?
@@ -63,10 +68,19 @@ model Ingredient {
   mealId   String
   meal     Meal    @relation(fields: [mealId], references: [id], onDelete: Cascade)
   name     String // required
-  qty      Float? // optional (hybrid)
+  qty      Float? // optional (hybrid); grams when scanned from a barcode
   unit     String? // optional: ml, g, tbsp, pcs...
   note     String?
   position Int     @default(0)
+  // Set when the ingredient was added by scanning a product. Macros are stored
+  // per 100 g/ml; the ingredient's contribution is macros × qty/100.
+  barcode  String?
+  kcal     Float?
+  protein  Float?
+  fat      Float?
+  carbs    Float?
+  sugar    Float?
+  fiber    Float?
 
   @@index([mealId])
 }

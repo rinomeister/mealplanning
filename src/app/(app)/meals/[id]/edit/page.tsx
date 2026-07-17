@@ -38,6 +38,8 @@ export default async function EditMealPage({
     name: meal.name,
     prepSteps: meal.prepSteps ?? "",
     servingLabel: meal.servingLabel ?? "",
+    serves: numToStr(meal.serves) || "1",
+    macrosManual: meal.macrosManual,
     kcal: numToStr(meal.kcal),
     protein: numToStr(meal.protein),
     fat: numToStr(meal.fat),
@@ -49,6 +51,23 @@ export default async function EditMealPage({
       qty: numToStr(ing.qty),
       unit: ing.unit ?? "",
       note: ing.note ?? "",
+      barcode: ing.barcode,
+      per100g:
+        ing.kcal != null ||
+        ing.protein != null ||
+        ing.fat != null ||
+        ing.carbs != null ||
+        ing.sugar != null ||
+        ing.fiber != null
+          ? {
+              kcal: ing.kcal,
+              protein: ing.protein,
+              fat: ing.fat,
+              carbs: ing.carbs,
+              sugar: ing.sugar,
+              fiber: ing.fiber,
+            }
+          : null,
     })),
     tagIds: meal.tags.map((t) => t.tagId),
   };

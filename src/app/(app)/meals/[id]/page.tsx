@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MacroSummary } from "@/components/macro-summary";
+import { fmtMacro } from "@/lib/macros";
 import { DeleteMealButton } from "@/components/delete-meal-button";
 import { formatIngredientLine } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -74,7 +75,10 @@ export default async function MealDetailPage({
         {hasMacros && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Macros per serving</CardTitle>
+              <CardTitle className="text-sm">
+                Macros per serving
+                {meal.serves > 1 ? ` · makes ${fmtMacro(meal.serves)}` : ""}
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <MacroSummary
