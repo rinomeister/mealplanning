@@ -22,7 +22,9 @@ export async function GET(
   // that OFF doesn't have. Fall back to Open Food Facts only when unknown.
   const existing = await prisma.product.findUnique({ where: { barcode: code } });
   if (existing) {
-    return NextResponse.json(productRowToResult(existing));
+    // `barcode` is nullable on the model (hand-entered foods have none), but we
+    // matched on it here, so it's this exact code.
+    return NextResponse.json(productRowToResult({ ...existing, barcode: code }));
   }
 
   const result = await lookupBarcode(code);

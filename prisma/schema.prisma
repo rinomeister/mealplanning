@@ -135,8 +135,11 @@ model PlanEntry {
 // 100 g/ml (canonical). Populated from Open Food Facts on first log and
 // overridable by users (source flips to "user" once hand-edited).
 model Product {
-  id           String  @id @default(cuid())
-  barcode      String  @unique
+  id String @id @default(cuid())
+  // Null for hand-entered foods: butcher's meat, loose produce, anything whose
+  // packaging is long gone. Postgres allows many NULLs under a unique index, so
+  // barcoded products still can't collide.
+  barcode      String? @unique
   name         String
   brand        String?
   servingLabel String? // free text e.g. "30 g"

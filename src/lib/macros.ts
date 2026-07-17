@@ -25,6 +25,18 @@ export type MealMacros = {
   fiber: number | null;
 };
 
+/** True if any macro is filled in — an all-null product can't be counted. */
+export function hasAnyMacro(m: MealMacros): boolean {
+  return (
+    m.kcal != null ||
+    m.protein != null ||
+    m.fat != null ||
+    m.carbs != null ||
+    m.sugar != null ||
+    m.fiber != null
+  );
+}
+
 /** Scale per-serving macros by a serving count (meals). */
 export function scaleMacros(meal: MealMacros, servings: number): Macros {
   return {

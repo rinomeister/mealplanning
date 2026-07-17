@@ -120,6 +120,31 @@ export const logProductSchema = productMacrosSchema.extend({
 
 export type LogProductInputRaw = z.input<typeof logProductSchema>;
 
+// A hand-entered product: same shape as a scanned one minus the barcode, for
+// food that never had a scannable package (butcher's meat, loose produce).
+export const manualProductSchema = productMacrosSchema.omit({ barcode: true });
+
+export type ManualProductInput = z.infer<typeof manualProductSchema>;
+export type ManualProductInputRaw = z.input<typeof manualProductSchema>;
+
+/** Editing an existing product in place, by id rather than by barcode. */
+export const editProductSchema = manualProductSchema.extend({
+  id: z.string().min(1),
+});
+
+export type EditProductInputRaw = z.input<typeof editProductSchema>;
+
+// Logging a product we already hold: no macro payload, just which one and how
+// much. Macros are read from the row server-side.
+export const logExistingProductSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  slot: z.enum(SLOTS),
+  productId: z.string().min(1),
+  grams: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(100000)),
+});
+
+export type LogExistingProductInputRaw = z.input<typeof logExistingProductSchema>;
+
 export const bodyweightSchema = z.object({
   weightKg: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(700)),
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),

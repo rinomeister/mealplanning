@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { MacroSummary } from "@/components/macro-summary";
 import { BarcodeCamera } from "@/components/barcode-camera";
 import { parseDecimal } from "@/lib/utils";
-import { scaleGrams, type MealMacros } from "@/lib/macros";
+import { hasAnyMacro, scaleGrams, type MealMacros } from "@/lib/macros";
 import { upsertProductMacrosAction } from "@/app/(app)/track/actions";
 import type { BarcodeLookupResult } from "@/lib/barcode";
 
@@ -32,17 +32,6 @@ const MACRO_FIELDS: { key: keyof MealMacros; label: string }[] = [
   { key: "sugar", label: "Sugar g" },
   { key: "fiber", label: "Fiber g" },
 ];
-
-function hasAnyMacro(m: MealMacros): boolean {
-  return (
-    m.kcal != null ||
-    m.protein != null ||
-    m.fat != null ||
-    m.carbs != null ||
-    m.sugar != null ||
-    m.fiber != null
-  );
-}
 
 function toStr(v: number | null): string {
   return v == null ? "" : String(v);

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
 import { PlanEntryRow, type DayEntry } from "@/components/day-planner";
 import { AddFoodControl } from "@/components/day-tracker";
+import type { PickerProduct } from "@/components/add-product-dialog";
 import { SlotMacros } from "@/components/slot-macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate, todayKey } from "@/lib/dates";
@@ -59,7 +60,7 @@ export default async function TrackPage({
   const { date: dateParam } = await searchParams;
   const date = dateParam && DATE_RE.test(dateParam) ? dateParam : todayKey();
 
-  const [user, entries, mealRecords, tags] = await Promise.all([
+  const [user, entries, mealRecords, tags, productRecords] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -111,6 +112,22 @@ export default async function TrackPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true },
     }),
+    prisma.product.findMany({
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        barcode: true,
+        servingGrams: true,
+        kcal: true,
+        protein: true,
+        fat: true,
+        carbs: true,
+        sugar: true,
+        fiber: true,
+      },
+    }),
   ]);
 
   const meals = mealRecords.map((m) => ({
@@ -118,6 +135,15 @@ export default async function TrackPage({
     name: m.name,
     kcal: m.kcal,
     tagIds: m.tags.map((t) => t.tagId),
+  }));
+
+  const products: PickerProduct[] = productRecords.map((p) => ({
+    id: p.id,
+    name: p.name,
+    brand: p.brand,
+    barcode: p.barcode,
+    servingGrams: p.servingGrams,
+    per100g: toMealMacros(p),
   }));
 
   type Entry = (typeof entries)[number];
@@ -251,6 +277,7 @@ export default async function TrackPage({
                   slotLabel={SLOT_LABELS[slot]}
                   meals={meals}
                   tags={tags}
+                  products={products}
                 />
               </CardContent>
             </Card>
