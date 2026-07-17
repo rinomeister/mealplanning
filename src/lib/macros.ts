@@ -78,6 +78,30 @@ export function sumDayEntries(entries: EntryForMacros[]): Macros {
   });
 }
 
+/**
+ * Whether passing the target is a failure or the whole point. Protein and fibre
+ * targets are floors you're trying to reach; kcal, fat, carbs and sugar are
+ * ceilings. Only a blown ceiling turns red.
+ */
+export type MacroKind = "limit" | "goal";
+
+export type MacroMeta = {
+  key: Exclude<keyof Macros, "kcal">;
+  label: string;
+  /** Matching `--macro-*` token from globals.css. */
+  color: string;
+  kind: MacroKind;
+};
+
+/** Display metadata for the gram macros; kcal gets its own treatment. */
+export const MACRO_META: MacroMeta[] = [
+  { key: "protein", label: "Protein", color: "var(--macro-protein)", kind: "goal" },
+  { key: "fat", label: "Fat", color: "var(--macro-fat)", kind: "limit" },
+  { key: "carbs", label: "Carbs", color: "var(--macro-carbs)", kind: "limit" },
+  { key: "sugar", label: "Sugar", color: "var(--macro-sugar)", kind: "limit" },
+  { key: "fiber", label: "Fiber", color: "var(--macro-fiber)", kind: "goal" },
+];
+
 /** Round a macro value for display (kcal whole, grams to 1 decimal). */
 export function fmtMacro(value: number, kind: "kcal" | "g" = "g"): string {
   if (kind === "kcal") return Math.round(value).toString();

@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
 import { PlanEntryRow, type DayEntry } from "@/components/day-planner";
 import { AddFoodControl } from "@/components/day-tracker";
+import { SlotMacros } from "@/components/slot-macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate, todayKey } from "@/lib/dates";
 import {
+  fmtMacro,
   sumDayEntries,
   type EntryForMacros,
   type MealMacros,
@@ -118,15 +120,16 @@ export default async function TrackPage({
     tagIds: m.tags.map((t) => t.tagId),
   }));
 
+  type Entry = (typeof entries)[number];
+  const forMacros = (e: Entry): EntryForMacros => ({
+    servings: e.servings,
+    grams: e.grams,
+    meal: e.meal ? toMealMacros(e.meal) : null,
+    product: e.product ? toMealMacros(e.product) : null,
+  });
+
   const counted = entries.filter((e) => e.status !== "SKIPPED");
-  const totals = sumDayEntries(
-    counted.map<EntryForMacros>((e) => ({
-      servings: e.servings,
-      grams: e.grams,
-      meal: e.meal ? toMealMacros(e.meal) : null,
-      product: e.product ? toMealMacros(e.product) : null,
-    })),
-  );
+  const totals = sumDayEntries(counted.map(forMacros));
 
   const uncounted = counted.filter((e) => {
     const item = e.product ?? e.meal;
@@ -155,37 +158,42 @@ export default async function TrackPage({
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
           href={`/track?date=${addDaysKey(date, -1)}`}
-          className="rounded-lg p-2 hover:bg-muted"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Previous day"
         >
-          <ChevronLeft className="size-5" />
+          <ChevronLeft className="size-6" />
         </Link>
         <div className="text-center">
-          <p className="font-semibold">{isToday ? "Today" : formatLong(date)}</p>
+          <p className="text-lg font-semibold">
+            {isToday ? "Today" : formatLong(date)}
+          </p>
           <Link
             href={`/calendar/${date}`}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+            className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:underline"
           >
-            <CalendarDays className="size-3" /> Plan this day
+            <CalendarDays className="size-4" /> Plan this day
           </Link>
         </div>
         <Link
           href={`/track?date=${addDaysKey(date, 1)}`}
-          className="rounded-lg p-2 hover:bg-muted"
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Next day"
         >
-          <ChevronRight className="size-5" />
+          <ChevronRight className="size-6" />
         </Link>
       </div>
 
       <Card className="mb-4">
-        <CardContent>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Daily goals ({counted.length} item{counted.length === 1 ? "" : "s"})
-          </p>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-base font-semibold">Daily goals</h2>
+            <p className="shrink-0 text-sm text-muted-foreground">
+              {counted.length} item{counted.length === 1 ? "" : "s"}
+            </p>
+          </div>
           <GoalProgress totals={totals} targets={targets} />
           {uncounted > 0 && (
-            <p className="mt-2 text-xs text-amber-600">
+            <p className="text-sm text-amber-600">
               {uncounted} item{uncounted === 1 ? "" : "s"} have no macros and aren&apos;t counted.
             </p>
           )}
@@ -195,12 +203,31 @@ export default async function TrackPage({
       <div className="flex flex-col gap-3">
         {SLOTS.map((slot) => {
           const slotEntries = bySlot.get(slot) ?? [];
+          const slotCounted = slotEntries.filter((e) => e.status !== "SKIPPED");
+          const slotTotals = sumDayEntries(slotCounted.map(forMacros));
           return (
             <Card key={slot}>
-              <CardContent className="flex flex-col gap-2">
-                <p className="text-sm font-semibold">{SLOT_LABELS[slot]}</p>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h2 className="text-lg font-semibold">{SLOT_LABELS[slot]}</h2>
+                    {slotCounted.length > 0 ? (
+                      <span className="shrink-0 text-lg font-bold tabular-nums">
+                        {fmtMacro(slotTotals.kcal, "kcal")}
+                        <span className="ml-1 text-sm font-normal text-muted-foreground">
+                          kcal
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-sm text-muted-foreground">
+                        Nothing logged
+                      </span>
+                    )}
+                  </div>
+                  {slotCounted.length > 0 && <SlotMacros macros={slotTotals} />}
+                </div>
                 {slotEntries.length > 0 && (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     {slotEntries.map((e) => {
                       const item = e.product ?? e.meal;
                       const dayEntry: DayEntry = {

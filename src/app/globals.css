@@ -14,6 +14,15 @@
   --destructive: #dc2626;
   --border: #e2e8f0;
   --ring: #16a34a;
+
+  /* One hue per macro, used by the progress bars and the per-slot legend so a
+     colour means the same thing everywhere on the page. Kept off the green
+     --primary, which is reserved for "on target". */
+  --macro-protein: #2563eb;
+  --macro-fat: #d97706;
+  --macro-carbs: #7c3aed;
+  --macro-sugar: #db2777;
+  --macro-fiber: #0d9488;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +40,13 @@
     --destructive: #ef4444;
     --border: #1e293b;
     --ring: #22c55e;
+
+    /* Lifted for contrast against the dark card. */
+    --macro-protein: #60a5fa;
+    --macro-fat: #fbbf24;
+    --macro-carbs: #a78bfa;
+    --macro-sugar: #f472b6;
+    --macro-fiber: #2dd4bf;
   }
 }
 
@@ -64,6 +80,11 @@
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-ring: var(--ring);
+  --color-macro-protein: var(--macro-protein);
+  --color-macro-fat: var(--macro-fat);
+  --color-macro-carbs: var(--macro-carbs);
+  --color-macro-sugar: var(--macro-sugar);
+  --color-macro-fiber: var(--macro-fiber);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

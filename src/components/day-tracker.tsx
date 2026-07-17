@@ -27,13 +27,13 @@ export function AddFoodControl({
   const [scanOpen, setScanOpen] = useState(false);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => setScanOpen(true)}
-        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary active:bg-muted"
       >
-        <ScanBarcode className="size-3.5" /> Scan product
+        <ScanBarcode className="size-4" /> Scan product
       </button>
       <AddMealControl
         date={date}

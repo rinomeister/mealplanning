@@ -67,9 +67,12 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
       : null;
 
   return (
+    // Two rows rather than one: on a phone the name, the quantity field and the
+    // kcal readout can't share a line without the name collapsing to a few
+    // characters. Name gets the full width; the controls sit beneath it.
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-border px-2 py-1.5",
+        "flex items-start gap-3 rounded-xl border border-border px-3 py-2.5",
         skipped && "opacity-50",
       )}
     >
@@ -82,64 +85,74 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
             setEntryStatusAction(entry.id, e.target.checked ? "EATEN" : "SKIPPED"),
           )
         }
-        className="size-4 accent-[var(--primary)]"
+        className="mt-1.5 size-5 shrink-0 accent-[var(--primary)]"
         aria-label="Ate this"
         title={skipped ? "Marked as not eaten" : "Counts toward the day"}
       />
-      {entry.href ? (
-        <Link
-          href={entry.href}
-          className={cn(
-            "min-w-0 flex-1 truncate text-sm hover:underline",
-            skipped && "line-through",
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          {entry.href ? (
+            <Link
+              href={entry.href}
+              className={cn(
+                "min-w-0 flex-1 truncate text-base font-medium hover:underline",
+                skipped && "line-through",
+              )}
+            >
+              {entry.name}
+            </Link>
+          ) : (
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-base font-medium",
+                skipped && "line-through",
+              )}
+            >
+              {entry.name}
+            </span>
           )}
-        >
-          {entry.name}
-        </Link>
-      ) : (
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate text-sm",
-            skipped && "line-through",
+          {!entry.hasMacros && (
+            <AlertTriangle
+              className="size-4 shrink-0 text-amber-500"
+              aria-label="No macros — not counted"
+            />
           )}
-        >
-          {entry.name}
-        </span>
-      )}
-      {!entry.hasMacros && (
-        <AlertTriangle
-          className="size-4 shrink-0 text-amber-500"
-          aria-label="No macros — not counted"
-        />
-      )}
-      <div className="flex items-center gap-1">
-        {!isProduct && <span className="text-xs text-muted-foreground">×</span>}
-        <Input
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          onBlur={commitQty}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          inputMode="decimal"
-          className="h-7 w-14 px-1 text-center text-xs"
-          aria-label={isProduct ? "Grams" : "Servings"}
-        />
-        {isProduct && <span className="text-xs text-muted-foreground">g</span>}
+        </div>
+        <div className="mt-1.5 flex items-center gap-2">
+          {!isProduct && (
+            <span className="text-sm text-muted-foreground">×</span>
+          )}
+          <Input
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            onBlur={commitQty}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            inputMode="decimal"
+            className="h-9 w-16 px-1 text-center text-sm md:h-9"
+            aria-label={isProduct ? "Grams" : "Servings"}
+          />
+          {isProduct && <span className="text-sm text-muted-foreground">g</span>}
+          {scaledKcal && (
+            <span className="ml-auto text-sm font-medium tabular-nums text-muted-foreground">
+              {scaledKcal} kcal
+            </span>
+          )}
+        </div>
       </div>
-      {scaledKcal && (
-        <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">
-          {scaledKcal} kcal
-        </span>
-      )}
       <button
         type="button"
         disabled={isPending}
         onClick={() => run(() => removePlanEntryAction(entry.id))}
-        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+        className="-mr-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-destructive"
         aria-label="Remove"
       >
-        {isPending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+        {isPending ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <X className="size-4" />
+        )}
       </button>
     </div>
   );
@@ -170,8 +183,11 @@ export function AddMealControl({
 
   if (meals.length === 0) {
     return (
-      <Link href="/meals/new" className="text-xs text-primary hover:underline">
-        + Create a meal first
+      <Link
+        href="/meals/new"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary"
+      >
+        <Plus className="size-4" /> Create a meal first
       </Link>
     );
   }
@@ -181,9 +197,9 @@ export function AddMealControl({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary active:bg-muted"
       >
-        <Plus className="size-3.5" /> Add meal
+        <Plus className="size-4" /> Add meal
       </button>
       {open && (
         <MealPickerDialog
