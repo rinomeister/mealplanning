@@ -264,7 +264,7 @@ export function MealPickerDialog({
       aria-label={`Add meal to ${slotLabel}`}
     >
       <div
-        className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-card shadow-lg sm:max-w-md sm:rounded-2xl"
+        className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
@@ -277,7 +277,7 @@ export function MealPickerDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
             aria-label="Close"
           >
             <X className="size-4" />

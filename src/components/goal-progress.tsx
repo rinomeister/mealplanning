@@ -41,7 +41,7 @@ export function GoalProgress({
               {fmtMacro(consumed, kind)}
               {kind === "g" && <span className="text-xs font-normal">g</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground sm:text-[11px]">
+            <p className="text-xs leading-tight text-muted-foreground">
               {label}
               {target != null ? ` / ${Math.round(target)}` : ""}
             </p>
@@ -58,7 +58,7 @@ export function GoalProgress({
                 </div>
                 <p
                   className={cn(
-                    "mt-0.5 text-[9px] sm:text-[10px]",
+                    "mt-1 text-[11px] leading-tight",
                     over ? "text-destructive" : "text-muted-foreground",
                   )}
                 >

@@ -34,6 +34,22 @@
   }
 }
 
+/* Type scale, bumped ~1 step above Tailwind's defaults.
+   The app is used mostly one-handed on a phone, where the stock scale
+   (text-sm = 14px, text-xs = 12px) reads too small. Overriding the tokens
+   lifts every existing `text-sm`/`text-xs` in the app at once.
+   Line-heights are inherited: Tailwind's defaults are unitless ratios, so
+   they scale with these sizes automatically. */
+@theme {
+  --text-xs: 0.8125rem; /* 13px */
+  --text-sm: 0.9375rem; /* 15px */
+  --text-base: 1.0625rem; /* 17px */
+  --text-lg: 1.1875rem; /* 19px */
+  --text-xl: 1.3125rem; /* 21px */
+  --text-2xl: 1.625rem; /* 26px */
+  --text-3xl: 2rem; /* 32px */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -55,4 +71,26 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Keep iOS from silently shrinking text in narrow columns. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* iOS Safari zooms the viewport whenever a focused field's text is under 16px.
+   The design uses 15px fields, so pin them to 16px on touch devices only —
+   pointer:coarse keeps the tighter size on desktop, where there's no zoom. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Tapping shouldn't flash a grey box over our own active states. */
+@media (pointer: coarse) {
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
 }

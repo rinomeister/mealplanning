@@ -105,7 +105,7 @@ export default async function CalendarPage({
               {count > 0 && (
                 <span className="mt-auto flex items-center gap-0.5">
                   <span className="size-1.5 rounded-full bg-primary" />
-                  <span className="text-[10px] text-muted-foreground">{count}</span>
+                  <span className="text-[11px] text-muted-foreground">{count}</span>
                 </span>
               )}
             </Link>

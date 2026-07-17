@@ -24,7 +24,7 @@ export function InstallPrompt() {
   if (!deferred || hidden) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-20 z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-lg md:bottom-4">
+    <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-lg md:bottom-4">
       <Download className="size-5 shrink-0 text-primary" />
       <div className="flex-1 text-sm">
         <p className="font-medium">Install MealPlan</p>
@@ -36,16 +36,16 @@ export function InstallPrompt() {
           await deferred.userChoice;
           setDeferred(null);
         }}
-        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+        className="min-h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
       >
         Install
       </button>
       <button
         onClick={() => setHidden(true)}
         aria-label="Dismiss"
-        className="rounded p-1 text-muted-foreground hover:bg-muted"
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
       >
-        <X className="size-4" />
+        <X className="size-5" />
       </button>
     </div>
   );

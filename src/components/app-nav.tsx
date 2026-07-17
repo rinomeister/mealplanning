@@ -37,7 +37,7 @@ export function DesktopNav() {
             key={href}
             href={href}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               active
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -55,20 +55,31 @@ export function DesktopNav() {
 export function MobileNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-6">
+    // The root layout opts into `viewportFit: "cover"`, so the page extends
+    // under the home indicator. The bar's background fills to the true bottom
+    // edge, but `pb-[env(safe-area-inset-bottom)]` lifts the tap targets clear
+    // of it — without this the lower half of each button is unpressable.
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
+      <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5 py-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
         {NAV.map(({ href, label, icon: Icon, exact }) => {
           const active = isActive(pathname, href, exact);
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
-                active ? "text-primary" : "text-muted-foreground",
+                // min-h-12 keeps each target at ~48px, above the 44px iOS minimum.
+                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-1.5 text-[12px] font-medium leading-none tracking-tight transition-colors",
+                active
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground active:bg-muted",
               )}
             >
-              <Icon className="size-5" />
+              <Icon className="size-6 shrink-0" />
               {label}
             </Link>
           );

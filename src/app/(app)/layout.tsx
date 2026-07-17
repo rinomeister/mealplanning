@@ -39,7 +39,9 @@ export default async function AppLayout({
 
       {/* Main content */}
       <div className="flex-1">
-        <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-5 md:px-8 md:pb-10 md:pt-8">
+        {/* Bottom padding clears the mobile nav *plus* the home indicator;
+            the side padding respects the notch inset in landscape. */}
+        <main className="mx-auto w-full max-w-3xl pb-[calc(6.5rem+env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pt-5 md:pb-10 md:pl-8 md:pr-8 md:pt-8">
           {children}
         </main>
       </div>

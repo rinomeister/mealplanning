@@ -32,7 +32,7 @@ export function MacroSummary({
               {fmtMacro(macros[key], kind)}
               {kind === "g" && <span className="text-xs font-normal">g</span>}
             </p>
-            <p className="text-[10px] text-muted-foreground sm:text-[11px]">
+            <p className="text-xs leading-tight text-muted-foreground">
               {label}
               {target ? ` / ${Math.round(target)}` : ""}
             </p>
