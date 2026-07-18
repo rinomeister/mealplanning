@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
 import { PlanEntryRow, type DayEntry } from "@/components/day-planner";
 import { AddFoodControl } from "@/components/day-tracker";
+import { SlotActionsMenu } from "@/components/slot-actions-menu";
 import type { PickerProduct } from "@/components/add-product-dialog";
 import { SlotMacros } from "@/components/slot-macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
@@ -235,20 +236,28 @@ export default async function TrackPage({
             <Card key={slot}>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold">{SLOT_LABELS[slot]}</h2>
-                    {slotCounted.length > 0 ? (
-                      <span className="shrink-0 text-lg font-bold tabular-nums">
-                        {fmtMacro(slotTotals.kcal, "kcal")}
-                        <span className="ml-1 text-sm font-normal text-muted-foreground">
-                          kcal
+                    <div className="flex shrink-0 items-center gap-1">
+                      {slotCounted.length > 0 ? (
+                        <span className="text-lg font-bold tabular-nums">
+                          {fmtMacro(slotTotals.kcal, "kcal")}
+                          <span className="ml-1 text-sm font-normal text-muted-foreground">
+                            kcal
+                          </span>
                         </span>
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-sm text-muted-foreground">
-                        Nothing logged
-                      </span>
-                    )}
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          Nothing logged
+                        </span>
+                      )}
+                      <SlotActionsMenu
+                        date={date}
+                        slot={slot}
+                        slotLabel={SLOT_LABELS[slot]}
+                        hasEntries={slotCounted.length > 0}
+                      />
+                    </div>
                   </div>
                   {slotCounted.length > 0 && <SlotMacros macros={slotTotals} />}
                 </div>

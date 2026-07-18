@@ -145,6 +145,24 @@ export const logExistingProductSchema = z.object({
 
 export type LogExistingProductInputRaw = z.input<typeof logExistingProductSchema>;
 
+// Turn everything logged in a day+slot into a reusable meal.
+export const createMealFromSlotSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  slot: z.enum(SLOTS),
+  name: z.string().trim().min(1, "Meal name is required").max(120),
+});
+
+export type CreateMealFromSlotInput = z.input<typeof createMealFromSlotSchema>;
+
+// Copy one day's slot into another day's same slot.
+export const copySlotSchema = z.object({
+  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  slot: z.enum(SLOTS),
+});
+
+export type CopySlotInput = z.input<typeof copySlotSchema>;
+
 export const bodyweightSchema = z.object({
   weightKg: z.preprocess(normalizeDecimal, z.coerce.number().positive().max(700)),
   recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
