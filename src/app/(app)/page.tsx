@@ -1,30 +1,20 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarDays,
-  ShoppingCart,
-  TrendingDown,
-  TrendingUp,
-  UtensilsCrossed,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth-helpers";
-import { getSessionUser } from "@/lib/auth-helpers";
+import { requireUserId, getSessionUser } from "@/lib/auth-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { MacroSummary } from "@/components/macro-summary";
-import { addDaysKey, keyToDbDate, todayKey } from "@/lib/dates";
+import { GoalProgress } from "@/components/goal-progress";
+import { BodyweightTrend, type TrendPoint } from "@/components/bodyweight-trend";
+import { dbDateToKey, keyToDbDate, todayKey } from "@/lib/dates";
 import { sumDayEntries } from "@/lib/macros";
-import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
-import { cn } from "@/lib/utils";
+import type { UnitSystem } from "@/lib/units";
 
 export default async function DashboardPage() {
   const userId = await requireUserId();
   const user = await getSessionUser();
   const today = todayKey();
-  const weekEnd = addDaysKey(today, 6);
 
-  const [todayEntries, weekCount, mealCount, weights, dbUser] = await Promise.all([
+  const [todayEntries, weights, dbUser] = await Promise.all([
     prisma.planEntry.findMany({
       where: { userId, date: keyToDbDate(today), status: { not: "SKIPPED" } },
       include: {
@@ -36,18 +26,11 @@ export default async function DashboardPage() {
         },
       },
     }),
-    prisma.planEntry.count({
-      where: {
-        userId,
-        date: { gte: keyToDbDate(today), lte: keyToDbDate(weekEnd) },
-        status: { not: "SKIPPED" },
-      },
-    }),
-    prisma.meal.count({ where: { userId } }),
     prisma.bodyweightLog.findMany({
       where: { userId },
       orderBy: { recordedAt: "desc" },
-      take: 2,
+      take: 30,
+      select: { recordedAt: true, weightKg: true },
     }),
     prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -91,10 +74,10 @@ export default async function DashboardPage() {
   );
 
   const units = dbUser.units as UnitSystem;
-  const latest = weights[0];
-  const prev = weights[1];
-  const weightDelta =
-    latest && prev ? latest.weightKg - prev.weightKg : null;
+  const points: TrendPoint[] = weights.map((w) => ({
+    date: dbDateToKey(w.recordedAt),
+    weightKg: w.weightKg,
+  }));
 
   const firstName = (user?.name || user?.email || "there").split(" ")[0];
 
@@ -108,64 +91,40 @@ export default async function DashboardPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* Today */}
+        {/* Today's macros against goals — the daily headline. */}
         <Card>
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-sm">Today</CardTitle>
+            <CardTitle className="text-sm">
+              Today
+              <span className="ml-2 font-normal text-muted-foreground">
+                {todayEntries.length === 0
+                  ? "nothing logged yet"
+                  : `${todayEntries.length} item${todayEntries.length === 1 ? "" : "s"}`}
+              </span>
+            </CardTitle>
             <Link
-              href={`/calendar/${today}`}
+              href="/track"
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
-              Plan today <ArrowRight className="size-3" />
+              Track today <ArrowRight className="size-3" />
             </Link>
           </CardHeader>
           <CardContent className="pt-0">
-            {todayEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nothing planned yet.{" "}
-                <Link href={`/calendar/${today}`} className="text-primary hover:underline">
-                  Add meals
-                </Link>
-                .
-              </p>
-            ) : (
-              <>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  {todayEntries.length} meal{todayEntries.length === 1 ? "" : "s"} planned
-                </p>
-                <MacroSummary
-                  macros={totals}
-                  targets={{
-                    kcal: dbUser.targetKcal,
-                    protein: dbUser.targetProtein,
-                    fat: dbUser.targetFat,
-                    carbs: dbUser.targetCarbs,
-                    sugar: dbUser.targetSugar,
-                    fiber: dbUser.targetFiber,
-                  }}
-                />
-              </>
-            )}
+            <GoalProgress
+              totals={totals}
+              targets={{
+                kcal: dbUser.targetKcal,
+                protein: dbUser.targetProtein,
+                fat: dbUser.targetFat,
+                carbs: dbUser.targetCarbs,
+                sugar: dbUser.targetSugar,
+                fiber: dbUser.targetFiber,
+              }}
+            />
           </CardContent>
         </Card>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <StatCard
-            icon={<UtensilsCrossed className="size-5" />}
-            value={mealCount}
-            label={mealCount === 1 ? "meal saved" : "meals saved"}
-            href="/meals"
-          />
-          <StatCard
-            icon={<CalendarDays className="size-5" />}
-            value={weekCount}
-            label="planned next 7 days"
-            href="/calendar"
-          />
-        </div>
-
-        {/* Weight */}
+        {/* Bodyweight trend. */}
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm">Bodyweight</CardTitle>
@@ -177,74 +136,10 @@ export default async function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent className="pt-0">
-            {latest ? (
-              <div className="flex items-baseline gap-3">
-                <span className="text-2xl font-semibold">
-                  {kgToDisplay(latest.weightKg, units)} {weightLabel(units)}
-                </span>
-                {weightDelta != null && Math.abs(weightDelta) > 0.0001 && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-0.5 text-sm",
-                      weightDelta < 0 ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    {weightDelta < 0 ? (
-                      <TrendingDown className="size-4" />
-                    ) : (
-                      <TrendingUp className="size-4" />
-                    )}
-                    {kgToDisplay(Math.abs(weightDelta), units)} {weightLabel(units)}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No entries yet.{" "}
-                <Link href="/profile" className="text-primary hover:underline">
-                  Add your weight
-                </Link>
-                .
-              </p>
-            )}
+            <BodyweightTrend points={points} units={units} />
           </CardContent>
         </Card>
-
-        {/* Shopping shortcut */}
-        <Link
-          href="/shopping"
-          className={cn(buttonVariants({ variant: "outline" }), "h-12 justify-between")}
-        >
-          <span className="flex items-center gap-2">
-            <ShoppingCart className="size-5" /> Build shopping list
-          </span>
-          <ArrowRight className="size-4" />
-        </Link>
       </div>
     </>
-  );
-}
-
-function StatCard({
-  icon,
-  value,
-  label,
-  href,
-}: {
-  icon: React.ReactNode;
-  value: number;
-  label: string;
-  href: string;
-}) {
-  return (
-    <Link href={href}>
-      <Card className="h-full transition-colors hover:border-primary/50">
-        <CardContent className="flex flex-col gap-1">
-          <span className="text-primary">{icon}</span>
-          <span className="text-2xl font-bold">{value}</span>
-          <span className="text-xs text-muted-foreground">{label}</span>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }
