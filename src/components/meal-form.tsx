@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, ScanBarcode, X } from "lucide-react";
+import { Loader2, Package, Plus, ScanBarcode, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { MacroSummary } from "@/components/macro-summary";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
+import { ProductPickerDialog } from "@/components/product-picker-dialog";
+import type { PickerProduct } from "@/components/add-product-dialog";
 import { cn, parseDecimal } from "@/lib/utils";
 import {
   addMacros,
@@ -88,9 +90,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function MealForm({
   tags,
+  products,
   initial,
 }: {
   tags: TagItem[];
+  products: PickerProduct[];
   initial?: MealFormInitial;
 }) {
   const router = useRouter();
@@ -112,6 +116,7 @@ export function MealForm({
     initial?.ingredients?.length ? initial.ingredients : [{ ...emptyRow }],
   );
   const [scanOpen, setScanOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [allTags, setAllTags] = useState<TagItem[]>(tags);
   const [selected, setSelected] = useState<Set<string>>(
@@ -137,6 +142,20 @@ export function MealForm({
     setIngredients((rows) =>
       rows.length === 1 && isEmptyRow(rows[0]) ? [row] : [...rows, row],
     );
+  }
+  // Drop a product from the library in as an editable ingredient row. Products
+  // with macros come in gram-based (defaulting to one serving) so they count
+  // straight away; macro-less ones land as a plain named row.
+  function addProductRow(p: PickerProduct) {
+    const withMacros = hasAnyMacro(p.per100g);
+    addScannedRow({
+      name: p.name,
+      qty: withMacros ? String(p.servingGrams ?? 100) : "",
+      unit: withMacros ? "g" : "",
+      note: "",
+      barcode: p.barcode,
+      per100g: withMacros ? p.per100g : null,
+    });
   }
 
   function toggleTag(id: string) {
@@ -337,7 +356,12 @@ export function MealForm({
                   </div>
                   {row.per100g ? (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <ScanBarcode className="size-3" /> Scanned
+                      {row.barcode ? (
+                        <ScanBarcode className="size-3" />
+                      ) : (
+                        <Package className="size-3" />
+                      )}
+                      {row.barcode ? "Scanned" : "From products"}
                       {contribution
                         ? ` · ${Math.round(contribution.kcal)} kcal`
                         : " · set a gram amount to count it"}
@@ -355,9 +379,17 @@ export function MealForm({
               );
             })}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={addRow}>
               <Plus /> Add ingredient
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+            >
+              <Package /> From products
             </Button>
             <Button
               type="button"
@@ -512,6 +544,14 @@ export function MealForm({
             return true;
           }}
           onClose={() => setScanOpen(false)}
+        />
+      )}
+
+      {pickerOpen && (
+        <ProductPickerDialog
+          products={products}
+          onPick={addProductRow}
+          onClose={() => setPickerOpen(false)}
         />
       )}
     </form>

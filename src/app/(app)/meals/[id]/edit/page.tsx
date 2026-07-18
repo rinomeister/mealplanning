@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { MealForm, type MealFormInitial } from "@/components/meal-form";
+import { loadMealFormProducts } from "@/lib/meal-form-products";
 
 function numToStr(n: number | null): string {
   return n == null ? "" : n.toString();
@@ -16,7 +17,7 @@ export default async function EditMealPage({
   const userId = await requireUserId();
   const { id } = await params;
 
-  const [meal, tags] = await Promise.all([
+  const [meal, tags, products] = await Promise.all([
     prisma.meal.findFirst({
       where: { id, userId },
       include: {
@@ -29,6 +30,7 @@ export default async function EditMealPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true },
     }),
+    loadMealFormProducts(),
   ]);
 
   if (!meal) notFound();
@@ -75,7 +77,7 @@ export default async function EditMealPage({
   return (
     <>
       <PageHeader title="Edit meal" />
-      <MealForm tags={tags} initial={initial} />
+      <MealForm tags={tags} products={products} initial={initial} />
     </>
   );
 }
