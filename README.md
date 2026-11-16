@@ -87,6 +87,9 @@ plan days, and build a shopping list.
 - **Weighing the pot**: give a meal its cooked batch weight (meal page or form) and it's logged
   in grams; servings = grams × serves ÷ batch weight. Re-weighing a new pot rescales today's and
   future entries (their grams stay); past days are untouched.
+- **Deleting a meal or product** never touches history: entries on past days (or already
+  eaten) are kept by name with the numbers they had — "Skyr · 150 g" — and upcoming plans for
+  it are removed. The confirmation says how many plans that is.
 - **Servings**: a meal describes one serving; each calendar entry has a `servings` multiplier that
   scales both macros (day totals) and shopping quantities.
 - **Day status**: entries default to `PLANNED`. Unchecking "ate this" marks an entry `SKIPPED`

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { deleteMessage } from "@/lib/format";
 import { Loader2, Pencil, Plus, ScanBarcode, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import type { PickerProduct } from "@/lib/products";
 import {
   createProductAction,
   deleteProductAction,
+  productUpcomingCountAction,
   updateProductAction,
 } from "@/app/(app)/products/actions";
 
@@ -121,8 +123,9 @@ export function ProductCard({ product }: { product: ManagedProduct }) {
   const [isPending, startTransition] = useTransition();
 
   function remove() {
-    if (!confirm(`Delete “${product.name}”?`)) return;
     startTransition(async () => {
+      const upcoming = await productUpcomingCountAction(product.id);
+      if (!confirm(deleteMessage(`“${product.name}”`, upcoming))) return;
       const res = await deleteProductAction(product.id);
       if (!res.ok) setError(res.error);
     });

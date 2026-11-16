@@ -11,7 +11,11 @@ import {
   type ManualProductInputRaw,
   type ProductMacrosInputRaw,
 } from "@/lib/schemas";
-import { refreshUpcomingEntries } from "@/lib/entries";
+import {
+  countUpcomingEntries,
+  deleteProductKeepingHistory,
+  refreshUpcomingEntries,
+} from "@/lib/entries";
 import { toPickerProduct, PICKER_PRODUCT_SELECT } from "@/lib/products";
 import type { PickerProduct } from "@/lib/products";
 
@@ -94,19 +98,33 @@ export async function updateProductAction(
  * PlanEntry relation is `onDelete: Restrict`, so removing a used product would
  * otherwise blow up. We check first to explain why instead of throwing.
  */
+/**
+ * For the delete confirmation: upcoming, uneaten plans that would be removed.
+ * Products are shared, so this counts both accounts' plans.
+ */
+export async function productUpcomingCountAction(id: string): Promise<number> {
+  await requireUserId();
+  return countUpcomingEntries({ productId: id });
+}
+
+/**
+ * Delete a product. Logged history stays (as "Name · 150 g" entries with the
+ * totals they had); upcoming plans for it are removed.
+ */
 export async function deleteProductAction(id: string): Promise<ActionResult> {
   await requireUserId();
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { id: true, name: true },
+  });
+  if (!product) return { ok: false, error: "That product no longer exists." };
 
-  const used = await prisma.planEntry.count({ where: { productId: id } });
-  if (used > 0) {
-    return {
-      ok: false,
-      error: `Logged ${used} time${used === 1 ? "" : "s"} — deleting it would erase that history.`,
-    };
-  }
-
-  await prisma.product.delete({ where: { id } });
+  await deleteProductKeepingHistory(product);
   revalidatePath("/products");
+  revalidatePath("/track");
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/shopping");
+  revalidatePath("/");
   return { ok: true };
 }
 

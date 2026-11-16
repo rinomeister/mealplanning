@@ -3,7 +3,11 @@
 import { useTransition } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { deleteMealAction } from "@/app/(app)/meals/actions";
+import {
+  deleteMealAction,
+  mealUpcomingCountAction,
+} from "@/app/(app)/meals/actions";
+import { deleteMessage } from "@/lib/format";
 
 export function DeleteMealButton({ id }: { id: string }) {
   const [isPending, startTransition] = useTransition();
@@ -14,10 +18,9 @@ export function DeleteMealButton({ id }: { id: string }) {
       variant="outline"
       disabled={isPending}
       onClick={() => {
-        if (!confirm("Delete this meal? Planned entries using it will block deletion.")) {
-          return;
-        }
         startTransition(async () => {
+          const upcoming = await mealUpcomingCountAction(id);
+          if (!confirm(deleteMessage("meal", upcoming))) return;
           const res = await deleteMealAction(id);
           if (res && !res.ok) alert(res.error);
         });

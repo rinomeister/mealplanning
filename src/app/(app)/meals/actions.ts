@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { mealSchema, tagSchema, type MealInputRaw } from "@/lib/schemas";
 import {
+  countUpcomingEntries,
+  deleteMealKeepingHistory,
   refreshUpcomingEntries,
   rescaleUpcomingBatchEntries,
 } from "@/lib/entries";
@@ -182,24 +184,28 @@ export async function setMealFavoriteAction(
   revalidatePath(`/meals/${id}`);
 }
 
+/** For the delete confirmation: upcoming, uneaten plans that would be removed. */
+export async function mealUpcomingCountAction(id: string): Promise<number> {
+  const userId = await requireUserId();
+  return countUpcomingEntries({ mealId: id }, userId);
+}
+
 export async function deleteMealAction(
   id: string,
 ): Promise<{ ok: false; error: string } | void> {
   const userId = await requireUserId();
   const meal = await prisma.meal.findFirst({
     where: { id, userId },
-    select: { id: true, _count: { select: { planEntries: true } } },
+    select: { id: true, name: true },
   });
   if (!meal) return { ok: false, error: "Meal not found." };
-  if (meal._count.planEntries > 0) {
-    return {
-      ok: false,
-      error:
-        "This meal is still used in your calendar. Remove it from those days first.",
-    };
-  }
-  await prisma.meal.delete({ where: { id } });
+  // Past days keep it (by name, with their numbers); upcoming plans go.
+  await deleteMealKeepingHistory(meal);
   revalidatePath("/meals");
+  revalidatePath("/track");
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/shopping");
+  revalidatePath("/");
   redirect("/meals");
 }
 

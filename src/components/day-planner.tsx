@@ -128,9 +128,6 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
           )}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
-          {isQuick && (
-            <span className="text-sm text-muted-foreground">Quick add</span>
-          )}
           {!inGrams && !isQuick && (
             <span className="text-sm text-muted-foreground">×</span>
           )}

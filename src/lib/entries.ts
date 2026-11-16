@@ -134,3 +134,73 @@ export async function copyEntries(
   });
   return sources.length;
 }
+
+/** How many upcoming, not-yet-eaten entries deleting a meal/product removes. */
+export async function countUpcomingEntries(
+  ref: { mealId: string } | { productId: string },
+  userId?: string,
+): Promise<number> {
+  const today = keyToDbDate(todayKey());
+  return prisma.planEntry.count({
+    where: {
+      ...ref,
+      ...(userId ? { userId } : {}),
+      date: { gte: today },
+      status: { not: "EATEN" },
+    },
+  });
+}
+
+/**
+ * Delete a meal without touching history. Past and eaten entries are detached
+ * into named entries ("Beef chili", or "Beef chili · 350 g" when eaten by
+ * weight) that keep their own per-serving macros, so old day totals don't
+ * move. Upcoming plans for it are removed. Returns the number removed.
+ */
+export async function deleteMealKeepingHistory(meal: {
+  id: string;
+  name: string;
+}): Promise<number> {
+  const today = keyToDbDate(todayKey());
+  const results = await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE "PlanEntry"
+      SET "label" = ${meal.name} || CASE WHEN "grams" IS NOT NULL
+            THEN ' · ' || ROUND("grams"::numeric)::text || ' g' ELSE '' END,
+          "mealId" = NULL, "grams" = NULL
+      WHERE "mealId" = ${meal.id} AND ("date" < ${today} OR "status" = 'EATEN')`,
+    // What still points at the meal is the upcoming, uneaten plans.
+    prisma.planEntry.deleteMany({ where: { mealId: meal.id } }),
+    prisma.meal.delete({ where: { id: meal.id } }),
+  ]);
+  return results[1].count;
+}
+
+/**
+ * Delete a product without touching anyone's history (products are shared).
+ * A product entry scales per-100 g macros by grams; once detached it can't, so
+ * its macros become the eaten totals with servings 1, and the label records the
+ * amount ("Skyr · 150 g"). Upcoming plans for it are removed.
+ */
+export async function deleteProductKeepingHistory(product: {
+  id: string;
+  name: string;
+}): Promise<number> {
+  const today = keyToDbDate(todayKey());
+  const results = await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE "PlanEntry"
+      SET "label" = ${product.name} || ' · ' || ROUND(COALESCE("grams", 0)::numeric)::text || ' g',
+          "kcal" = "kcal" * COALESCE("grams", 0) / 100,
+          "protein" = "protein" * COALESCE("grams", 0) / 100,
+          "fat" = "fat" * COALESCE("grams", 0) / 100,
+          "carbs" = "carbs" * COALESCE("grams", 0) / 100,
+          "sugar" = "sugar" * COALESCE("grams", 0) / 100,
+          "fiber" = "fiber" * COALESCE("grams", 0) / 100,
+          "servings" = 1, "grams" = NULL, "productId" = NULL
+      WHERE "productId" = ${product.id} AND ("date" < ${today} OR "status" = 'EATEN')`,
+    prisma.planEntry.deleteMany({ where: { productId: product.id } }),
+    prisma.product.delete({ where: { id: product.id } }),
+  ]);
+  return results[1].count;
+}

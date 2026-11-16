@@ -23,3 +23,12 @@ export function formatIngredientLine(ing: {
   const base = qu ? `${qu} ${ing.name}` : ing.name;
   return ing.note ? `${base} (${ing.note})` : base;
 }
+
+/** Delete confirmation that says what happens to the days it was used on. */
+export function deleteMessage(what: string, upcoming: number): string {
+  const plans =
+    upcoming > 0
+      ? ` It's planned ${upcoming} more time${upcoming === 1 ? "" : "s"} from today; ${upcoming === 1 ? "that" : "those"} will be removed.`
+      : "";
+  return `Delete ${what}? Days you already logged keep it, with the same numbers.${plans}`;
+}
