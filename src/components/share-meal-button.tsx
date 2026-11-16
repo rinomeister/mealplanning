@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check, Copy, Loader2, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createMealShareAction, revokeMealShareAction } from "@/app/(app)/share/actions";
+import { Modal } from "@/components/ui/modal";
 import { formatShareCode } from "@/lib/share";
 
 /**
@@ -71,17 +72,7 @@ export function ShareMealButton({
       </Button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          onClick={() => setOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Share meal"
-        >
-          <div
-            className="flex w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={() => setOpen(false)} label={"Share meal"}>
             <div className="flex items-center gap-2 border-b border-border p-4">
               <p className="flex-1 truncate text-sm font-semibold">Share “{mealName}”</p>
               <button
@@ -116,8 +107,7 @@ export function ShareMealButton({
               )}
               {message && <p className="text-sm text-destructive">{message}</p>}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   );

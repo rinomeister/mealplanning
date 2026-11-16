@@ -5,6 +5,7 @@ import { Check, History, Package, ScanBarcode, Search, Star, X } from "lucide-re
 import { Input } from "@/components/ui/input";
 import { OffSearchPanel } from "@/components/off-search-panel";
 import type { PickerProduct } from "@/lib/products";
+import { Modal } from "@/components/ui/modal";
 import { EMPTY_USAGE, groupByUsage, type Usage } from "@/lib/usage";
 
 /** Case-insensitive match across name and brand, so "cekin" finds the brand. */
@@ -71,17 +72,7 @@ export function ProductPickerDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add from your products"
-    >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={"Add from your products"} className="overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border p-4">
           <p className="flex-1 text-sm font-semibold">Add from your products</p>
           <button
@@ -170,7 +161,6 @@ export function ProductPickerDialog({
           )}
           <OffSearchPanel query={query} onPick={pick} />
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }

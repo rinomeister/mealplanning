@@ -31,6 +31,7 @@ import { EMPTY_USAGE, groupByUsage, type Usage } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 import { OffSearchPanel } from "@/components/off-search-panel";
 import { PortionChips } from "@/components/portion-chips";
+import { Modal } from "@/components/ui/modal";
 import type { PickerProduct } from "@/lib/products";
 
 export type { PickerProduct };
@@ -199,17 +200,7 @@ export function AddProductDialog({
       : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={title} className="overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border p-4">
           {phase !== "search" && (
             <button
@@ -466,7 +457,6 @@ export function AddProductDialog({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </Modal>
   );
 }

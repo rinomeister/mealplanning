@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { SaveSlotMealForm } from "@/components/save-slot-meal";
 import { copySlotFromDateAction } from "@/app/(app)/track/actions";
 import { addDaysKey, formatHuman } from "@/lib/dates";
+import { Modal } from "@/components/ui/modal";
 import type { SlotKey } from "@/lib/schemas";
 
 type View = "menu" | "save" | "copy";
@@ -90,17 +91,7 @@ export function SlotActionsMenu({
       </button>
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          onClick={close}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${slotLabel} actions`}
-        >
-          <div
-            className="flex w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={close} label={`${slotLabel} actions`}>
             <div className="flex items-center gap-2 border-b border-border p-4">
               {view !== "menu" && !savedId && (
                 <button
@@ -196,8 +187,7 @@ export function SlotActionsMenu({
                 </Button>
               </div>
             )}
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   );

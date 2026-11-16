@@ -55,3 +55,7 @@ anywhere in the list.
 - "Save as meal" from sections and the meal picker (Nov 2026)
 - Weigh the whole pot, log meals by grams (Nov 2026)
 - Shopping list aisles and "already at home" (Nov 2026)
+- Products page: scan or search Open Food Facts to add (Nov 2026)
+- Meal form rework: products/scan/search only, pinned totals, collapsible extras (Nov 2026)
+- Second barcode engine (native BarcodeDetector) switchable in Profile (Nov 2026)
+- Dialogs open from the top instead of bottom sheets (Nov 2026)

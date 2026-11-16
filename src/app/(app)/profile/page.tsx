@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { ProfileForm, type ProfileInitial } from "@/components/profile-form";
+import { ScannerSettings } from "@/components/scanner-settings";
 import { BodyweightPanel, type WeightLog } from "@/components/bodyweight-panel";
 import { dbDateToKey, todayKey } from "@/lib/dates";
 import type { UnitSystem } from "@/lib/units";
@@ -51,6 +52,7 @@ export default async function ProfilePage() {
           units={user.units as UnitSystem}
           today={todayKey()}
         />
+        <ScannerSettings />
       </div>
     </>
   );

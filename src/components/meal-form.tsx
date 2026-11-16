@@ -2,20 +2,29 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Package, Plus, ScanBarcode, X } from "lucide-react";
+import {
+  ChevronDown,
+  Globe,
+  Loader2,
+  Package,
+  Plus,
+  ScanBarcode,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { MacroSummary } from "@/components/macro-summary";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
 import { ProductPickerDialog } from "@/components/product-picker-dialog";
+import { OffSearchDialog } from "@/components/off-search-dialog";
 import type { PickerProduct } from "@/components/add-product-dialog";
 import type { Usage } from "@/lib/usage";
 import { cn, parseDecimal } from "@/lib/utils";
 import {
   addMacros,
+  fmtMacro,
   scaleGrams,
   ZERO_MACROS,
   type Macros,
@@ -57,15 +66,6 @@ export type MealFormInitial = {
   tagIds: string[];
 };
 
-const emptyRow: IngredientRow = {
-  name: "",
-  qty: "",
-  unit: "",
-  note: "",
-  barcode: null,
-  per100g: null,
-};
-
 function hasAnyMacro(m: MealMacros | null): boolean {
   return (
     !!m &&
@@ -78,18 +78,20 @@ function hasAnyMacro(m: MealMacros | null): boolean {
   );
 }
 
-function isEmptyRow(r: IngredientRow): boolean {
-  return (
-    r.name.trim() === "" &&
-    r.qty.trim() === "" &&
-    r.unit.trim() === "" &&
-    r.note.trim() === "" &&
-    !r.per100g
-  );
-}
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+function num(s: string): number {
+  const n = parseDecimal(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Create / edit a meal. Ingredients come only from stored products, a barcode
+ * scan or an Open Food Facts search, so every one carries macros and the
+ * per-serving totals (pinned at the top) are always computed. Older meals may
+ * still hold typed-in ingredient rows; those are shown and kept, just not
+ * counted. Hand-entered macros remain as an override, tucked away.
+ */
 export function MealForm({
   tags,
   products,
@@ -118,10 +120,10 @@ export function MealForm({
   const [fiber, setFiber] = useState(initial?.fiber ?? "");
   const [macrosManual, setMacrosManual] = useState(initial?.macrosManual ?? false);
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
-    initial?.ingredients?.length ? initial.ingredients : [{ ...emptyRow }],
+    (initial?.ingredients ?? []).filter((r) => r.name.trim() !== ""),
   );
-  const [scanOpen, setScanOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [dialog, setDialog] = useState<null | "scan" | "picker" | "search">(null);
+  const closeDialog = () => setDialog(null);
 
   const [allTags, setAllTags] = useState<TagItem[]>(tags);
   const [selected, setSelected] = useState<Set<string>>(
@@ -135,30 +137,20 @@ export function MealForm({
       rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
     );
   }
-  function addRow() {
-    setIngredients((rows) => [...rows, { ...emptyRow }]);
-  }
   function removeRow(i: number) {
-    setIngredients((rows) =>
-      rows.length === 1 ? [{ ...emptyRow }] : rows.filter((_, idx) => idx !== i),
-    );
+    setIngredients((rows) => rows.filter((_, idx) => idx !== i));
   }
-  function addScannedRow(row: IngredientRow) {
-    setIngredients((rows) =>
-      rows.length === 1 && isEmptyRow(rows[0]) ? [row] : [...rows, row],
-    );
+  function addRow(row: IngredientRow) {
+    setIngredients((rows) => [...rows, row]);
   }
-  // Drop a product from the library in as an editable ingredient row. Products
-  // with macros come in gram-based (defaulting to one serving) so they count
-  // straight away; macro-less ones land as a plain named row.
+  // Products come in gram-based, defaulting to the last amount used or one
+  // serving. Macro-less products still land (named) so they can be fixed later.
   function addProductRow(p: PickerProduct) {
     const withMacros = hasAnyMacro(p.per100g);
-    addScannedRow({
+    addRow({
       name: p.name,
-      qty: withMacros
-        ? String(productUsage?.last[p.id]?.grams ?? p.servingGrams ?? 100)
-        : "",
-      unit: withMacros ? "g" : "",
+      qty: String(productUsage?.last[p.id]?.grams ?? p.servingGrams ?? 100),
+      unit: "g",
       note: "",
       barcode: p.barcode,
       per100g: withMacros ? p.per100g : null,
@@ -200,25 +192,38 @@ export function MealForm({
     return scaleGrams(r.per100g as MealMacros, g);
   }
 
-  const scannedRows = ingredients.filter((r) => hasAnyMacro(r.per100g));
-  const hasScanned = scannedRows.length > 0;
+  const countedRows = ingredients.filter((r) => hasAnyMacro(r.per100g));
+  const hasCounted = countedRows.length > 0;
   const servesNum = (() => {
     const n = parseDecimal(serves);
     return Number.isFinite(n) && n > 0 ? n : 1;
   })();
-  const scannedTotal = ingredients.reduce<Macros>((acc, r) => {
+  const batchTotal = ingredients.reduce<Macros>((acc, r) => {
     const m = rowMacros(r);
     return m ? addMacros(acc, m) : acc;
   }, { ...ZERO_MACROS });
   const computedPerServing: Macros = {
-    kcal: scannedTotal.kcal / servesNum,
-    protein: scannedTotal.protein / servesNum,
-    fat: scannedTotal.fat / servesNum,
-    carbs: scannedTotal.carbs / servesNum,
-    sugar: scannedTotal.sugar / servesNum,
-    fiber: scannedTotal.fiber / servesNum,
+    kcal: batchTotal.kcal / servesNum,
+    protein: batchTotal.protein / servesNum,
+    fat: batchTotal.fat / servesNum,
+    carbs: batchTotal.carbs / servesNum,
+    sugar: batchTotal.sugar / servesNum,
+    fiber: batchTotal.fiber / servesNum,
   };
-  const manualMode = macrosManual || !hasScanned;
+  // With nothing countable, the typed numbers are the only source of macros.
+  const manualMode = macrosManual || !hasCounted;
+  const manualMacros: Macros = {
+    kcal: num(kcal),
+    protein: num(protein),
+    fat: num(fat),
+    carbs: num(carbs),
+    sugar: num(sugar),
+    fiber: num(fiber),
+  };
+  const perServing = manualMode ? manualMacros : computedPerServing;
+  const manualHasValues = [kcal, protein, fat, carbs, sugar, fiber].some(
+    (v) => v.trim() !== "",
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -277,8 +282,43 @@ export function MealForm({
     });
   }
 
+  const selectedTagNames = allTags.filter((t) => selected.has(t.id)).map((t) => t.name);
+  const cookedNum = parseDecimal(cookedGrams);
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Totals, pinned while scrolling */}
+      <div className="sticky top-0 z-20 -mx-1 pt-[env(safe-area-inset-top)]">
+        <div className="rounded-xl border border-border bg-card/95 p-3 shadow-md backdrop-blur">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-3xl font-bold leading-none tabular-nums text-primary">
+                {fmtMacro(perServing.kcal, "kcal")}
+                <span className="ml-1 text-sm font-medium text-muted-foreground">kcal</span>
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                per serving{servingLabel.trim() ? ` (${servingLabel.trim()})` : ""}
+                {manualMode && (hasCounted || manualHasValues) ? " · entered by hand" : ""}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 text-center">
+              <MacroPill label="Protein" value={perServing.protein} />
+              <MacroPill label="Carbs" value={perServing.carbs} />
+              <MacroPill label="Fat" value={perServing.fat} />
+            </div>
+          </div>
+          {hasCounted && (
+            <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground tabular-nums">
+              Whole batch {Math.round(batchTotal.kcal)} kcal ·{" "}
+              {fmtMacro(batchTotal.protein)} g protein · {servesNum} serving
+              {servesNum === 1 ? "" : "s"}
+              {" · "}sugar {fmtMacro(perServing.sugar)} g · fiber{" "}
+              {fmtMacro(perServing.fiber)} g /serving
+            </p>
+          )}
+        </div>
+      </div>
+
       <Card>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -293,15 +333,6 @@ export function MealForm({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="servingLabel">One serving is…</Label>
-              <Input
-                id="servingLabel"
-                value={servingLabel}
-                onChange={(e) => setServingLabel(e.target.value)}
-                placeholder="1 bowl"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
               <Label htmlFor="serves">Makes … servings</Label>
               <Input
                 id="serves"
@@ -311,28 +342,15 @@ export function MealForm({
                 placeholder="1"
               />
             </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cookedGrams">Whole batch weighs (cooked, optional)</Label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="servingLabel">One serving is…</Label>
               <Input
-                id="cookedGrams"
-                value={cookedGrams}
-                onChange={(e) => setCookedGrams(e.target.value)}
-                inputMode="decimal"
-                placeholder="e.g. 1200"
-                className="w-32"
+                id="servingLabel"
+                value={servingLabel}
+                onChange={(e) => setServingLabel(e.target.value)}
+                placeholder="1 bowl"
               />
-              <span className="text-sm text-muted-foreground">g</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {(() => {
-                const g = parseDecimal(cookedGrams);
-                return Number.isFinite(g) && g > 0
-                  ? `About ${Math.round(g / servesNum)} g per serving. You'll log it by the grams on your plate.`
-                  : "Weigh the pot once it's cooked to log this meal by the grams on your plate.";
-              })()}
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -340,105 +358,119 @@ export function MealForm({
       {/* Ingredients */}
       <Card>
         <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-baseline justify-between">
             <Label>Ingredients</Label>
-            <span className="text-xs text-muted-foreground">
-              qty &amp; unit optional
-            </span>
+            {ingredients.length > 0 && (
+              <span className="text-xs text-muted-foreground">grams in the whole recipe</span>
+            )}
           </div>
-          <div className="flex flex-col gap-2">
-            {ingredients.map((row, i) => {
-              const contribution = rowMacros(row);
-              return (
-                <div key={i} className="flex flex-col gap-2 rounded-lg border border-border p-2">
-                  <div className="flex gap-2">
-                    <Input
-                      aria-label="Quantity"
-                      value={row.qty}
-                      onChange={(e) => updateRow(i, { qty: e.target.value })}
-                      placeholder="500"
-                      inputMode="decimal"
-                      className="w-20"
-                    />
-                    <Input
-                      aria-label="Unit"
-                      value={row.unit}
-                      onChange={(e) => updateRow(i, { unit: e.target.value })}
-                      placeholder="ml"
-                      className="w-20"
-                    />
-                    <Input
-                      aria-label="Ingredient name"
-                      value={row.name}
-                      onChange={(e) => updateRow(i, { name: e.target.value })}
-                      placeholder="milk"
-                      className="flex-1"
-                    />
-                    <Button
+
+          {ingredients.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-sm text-muted-foreground">
+              Add ingredients from your products, by scanning, or by searching online.
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              {ingredients.map((row, i) => {
+                const contribution = rowMacros(row);
+                const legacy = !row.per100g;
+                return (
+                  <li key={i} className="flex items-center gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{row.name}</p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        {row.barcode ? (
+                          <ScanBarcode className="size-3 shrink-0" />
+                        ) : (
+                          <Package className="size-3 shrink-0" />
+                        )}
+                        {legacy ? (
+                          <span className="text-amber-600">
+                            {row.qty || row.unit
+                              ? `${row.qty} ${row.unit} · `
+                              : ""}
+                            no macros, not counted
+                          </span>
+                        ) : contribution ? (
+                          <span className="tabular-nums">
+                            {Math.round(contribution.kcal)} kcal · {fmtMacro(contribution.protein)} g P
+                          </span>
+                        ) : (
+                          "enter grams to count it"
+                        )}
+                      </p>
+                    </div>
+                    {!legacy && (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          aria-label={`Grams of ${row.name}`}
+                          value={row.qty}
+                          onChange={(e) => updateRow(i, { qty: e.target.value })}
+                          inputMode="decimal"
+                          placeholder="0"
+                          className="h-9 w-20 text-right tabular-nums"
+                        />
+                        <span className="text-xs text-muted-foreground">g</span>
+                      </div>
+                    )}
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon"
                       onClick={() => removeRow(i)}
-                      aria-label="Remove ingredient"
+                      aria-label={`Remove ${row.name}`}
+                      className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-destructive"
                     >
-                      <X />
-                    </Button>
-                  </div>
-                  {row.per100g ? (
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      {row.barcode ? (
-                        <ScanBarcode className="size-3" />
-                      ) : (
-                        <Package className="size-3" />
-                      )}
-                      {row.barcode ? "Scanned" : "From products"}
-                      {contribution
-                        ? ` · ${Math.round(contribution.kcal)} kcal`
-                        : " · set a gram amount to count it"}
-                    </p>
-                  ) : (
-                    <Input
-                      aria-label="Note"
-                      value={row.note}
-                      onChange={(e) => updateRow(i, { note: e.target.value })}
-                      placeholder="note (optional, e.g. semi-skimmed)"
-                      className="text-xs"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={addRow}>
-              <Plus /> Add ingredient
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPickerOpen(true)}
-            >
-              <Package /> From products
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setScanOpen(true)}
-            >
-              <ScanBarcode /> Scan ingredient
-            </Button>
+                      <X className="size-4" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <AddButton icon={<Package className="size-5" />} label="My products" onClick={() => setDialog("picker")} />
+            <AddButton icon={<ScanBarcode className="size-5" />} label="Scan" onClick={() => setDialog("scan")} />
+            <AddButton icon={<Globe className="size-5" />} label="Search online" onClick={() => setDialog("search")} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Nutrition */}
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          <Label>Macros per serving</Label>
+      {/* Less-used options */}
+      <Card className="divide-y divide-border">
+        <Section
+          title="Batch weight"
+          summary={
+            Number.isFinite(cookedNum) && cookedNum > 0
+              ? `${cookedGrams} g cooked`
+              : "optional"
+          }
+          defaultOpen={Number.isFinite(cookedNum) && cookedNum > 0}
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              id="cookedGrams"
+              aria-label="Whole batch weight, cooked"
+              value={cookedGrams}
+              onChange={(e) => setCookedGrams(e.target.value)}
+              inputMode="decimal"
+              placeholder="e.g. 1200"
+              className="w-32"
+            />
+            <span className="text-sm text-muted-foreground">g cooked</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {Number.isFinite(cookedNum) && cookedNum > 0
+              ? `About ${Math.round(cookedNum / servesNum)} g per serving. You'll log it by the grams on your plate.`
+              : "Weigh the pot once it's cooked to log this meal by the grams on your plate."}
+          </p>
+        </Section>
 
-          {hasScanned && (
+        <Section
+          title="Enter macros by hand"
+          summary={manualMode && (hasCounted || manualHasValues) ? "on" : "off"}
+          defaultOpen={initial?.macrosManual ?? false}
+        >
+          {hasCounted ? (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -446,36 +478,30 @@ export function MealForm({
                 onChange={(e) => setMacrosManual(e.target.checked)}
                 className="size-4 accent-[var(--primary)]"
               />
-              Enter macros manually instead of from scanned ingredients
+              Override the totals from ingredients
             </label>
-          )}
-
-          {manualMode ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <MacroInput label="kcal" value={kcal} onChange={setKcal} />
-              <MacroInput label="Protein (g)" value={protein} onChange={setProtein} />
-              <MacroInput label="Fat (g)" value={fat} onChange={setFat} />
-              <MacroInput label="Carbs (g)" value={carbs} onChange={setCarbs} />
-              <MacroInput label="Sugar (g)" value={sugar} onChange={setSugar} />
-              <MacroInput label="Fiber (g)" value={fiber} onChange={setFiber} />
-            </div>
           ) : (
-            <div>
-              <p className="mb-1.5 text-xs text-muted-foreground">
-                Calculated from {scannedRows.length} scanned ingredient
-                {scannedRows.length === 1 ? "" : "s"} ÷ {servesNum} serving
-                {servesNum === 1 ? "" : "s"}
-              </p>
-              <MacroSummary macros={computedPerServing} />
+            <p className="text-xs text-muted-foreground">
+              Used while the meal has no ingredients with macros, e.g. a restaurant dish.
+            </p>
+          )}
+          {manualMode && (
+            <div className="grid grid-cols-3 gap-2">
+              <MacroInput label="kcal" value={kcal} onChange={setKcal} />
+              <MacroInput label="Protein g" value={protein} onChange={setProtein} />
+              <MacroInput label="Carbs g" value={carbs} onChange={setCarbs} />
+              <MacroInput label="Fat g" value={fat} onChange={setFat} />
+              <MacroInput label="Sugar g" value={sugar} onChange={setSugar} />
+              <MacroInput label="Fiber g" value={fiber} onChange={setFiber} />
             </div>
           )}
-        </CardContent>
-      </Card>
+          {manualMode && <p className="text-xs text-muted-foreground">Per serving.</p>}
+        </Section>
 
-      {/* Tags */}
-      <Card>
-        <CardContent className="flex flex-col gap-3">
-          <Label>Tags</Label>
+        <Section
+          title="Tags"
+          summary={selectedTagNames.length ? selectedTagNames.join(", ") : "none"}
+        >
           <div className="flex flex-wrap gap-2">
             {allTags.length === 0 && (
               <p className="text-sm text-muted-foreground">No tags yet.</p>
@@ -520,24 +546,24 @@ export function MealForm({
               disabled={creatingTag || !newTag.trim()}
             >
               {creatingTag ? <Loader2 className="animate-spin" /> : <Plus />}
-              Add tag
+              Add
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </Section>
 
-      {/* Prep steps */}
-      <Card>
-        <CardContent className="flex flex-col gap-1.5">
-          <Label htmlFor="prepSteps">Preparation (optional)</Label>
+        <Section
+          title="Preparation"
+          summary={prepSteps.trim() ? "written" : "optional"}
+        >
           <Textarea
             id="prepSteps"
+            aria-label="Preparation"
             value={prepSteps}
             onChange={(e) => setPrepSteps(e.target.value)}
             placeholder={"Step 1: …\nStep 2: …"}
             rows={5}
           />
-        </CardContent>
+        </Section>
       </Card>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -557,35 +583,102 @@ export function MealForm({
         </Button>
       </div>
 
-      {scanOpen && (
+      {dialog === "scan" && (
         <ScanProductDialog
           title="Scan an ingredient"
           confirmLabel="Add ingredient"
           gramsLabel="How many grams in the recipe?"
           onConfirm={(p, grams) => {
-            addScannedRow({
+            addRow({
               name: p.name,
               qty: String(grams),
               unit: "g",
               note: "",
               barcode: p.barcode,
-              per100g: p.per100g,
+              per100g: hasAnyMacro(p.per100g) ? p.per100g : null,
             });
             return true;
           }}
-          onClose={() => setScanOpen(false)}
+          onClose={closeDialog}
         />
       )}
 
-      {pickerOpen && (
+      {dialog === "picker" && (
         <ProductPickerDialog
           products={products}
           usage={productUsage}
           onPick={addProductRow}
-          onClose={() => setPickerOpen(false)}
+          onClose={closeDialog}
+        />
+      )}
+
+      {dialog === "search" && (
+        <OffSearchDialog
+          title="Search ingredients online"
+          onPick={addProductRow}
+          onClose={closeDialog}
         />
       )}
     </form>
+  );
+}
+
+function MacroPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-14 rounded-lg bg-muted/70 px-2 py-1">
+      <p className="text-sm font-semibold leading-tight tabular-nums">
+        {fmtMacro(value)}
+        <span className="text-xs font-normal">g</span>
+      </p>
+      <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function AddButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border border-border px-2 py-2 text-xs font-medium hover:bg-muted active:bg-muted"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+/** A collapsible row inside the "more options" card. */
+function Section({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details open={defaultOpen} className="group">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">
+          {summary}
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="flex flex-col gap-3 px-4 pb-4 sm:px-5">{children}</div>
+    </details>
   );
 }
 
@@ -599,7 +692,7 @@ function MacroInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Input
         value={value}

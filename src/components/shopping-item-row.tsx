@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Home, Loader2, MoreVertical, ShoppingCart, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AISLES, AISLE_LABELS, type Aisle } from "@/lib/aisles";
+import { Modal } from "@/components/ui/modal";
 import {
   setAtHomeAction,
   setItemAisleAction,
@@ -177,17 +178,7 @@ function ItemSheet({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={name}
-    >
-      <div
-        className="flex w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={name}>
         <div className="flex items-center gap-2 border-b border-border p-4">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{name}</p>
@@ -250,7 +241,6 @@ function ItemSheet({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }

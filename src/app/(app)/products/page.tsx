@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PICKER_PRODUCT_SELECT, toPickerProduct } from "@/lib/products";
 import {
-  NewProductButton,
+  ProductAddActions,
   ProductCard,
   type ManagedProduct,
 } from "@/components/product-manager";
@@ -44,9 +44,9 @@ export default async function ProductsPage({
       <PageHeader
         title="Food"
         description="Single foods you scan or type in, with macros per 100 g."
-        action={<NewProductButton className="hidden sm:inline-flex" />}
       />
       <FoodTabs active="products" />
+      <ProductAddActions className="mb-3" />
 
       <form action="/products" className="mb-3 flex gap-2">
         <div className="relative flex-1">
@@ -63,19 +63,14 @@ export default async function ProductsPage({
         </Button>
       </form>
 
-      <div className="mb-4 block sm:hidden">
-        <NewProductButton className="w-full" />
-      </div>
-
       {products.length === 0 ? (
         <EmptyState
           title={term ? "No products match" : "No products yet"}
           description={
             term
               ? `Nothing found for “${term}”.`
-              : "Scan a barcode or add a product by hand — anything you log on Today shows up here."
+              : "Scan a barcode, search Open Food Facts, or add a product by hand — anything you log on Today shows up here too."
           }
-          action={<NewProductButton />}
         />
       ) : (
         <>

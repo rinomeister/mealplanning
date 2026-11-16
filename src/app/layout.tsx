@@ -41,6 +41,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Android: shrink the layout viewport when the keyboard opens so dialogs
+  // (capped at 100dvh) stay fully visible above it.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

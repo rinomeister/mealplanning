@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { copyDayAction } from "@/app/(app)/track/actions";
+import { Modal } from "@/components/ui/modal";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 
 /**
@@ -84,17 +85,7 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
       )}
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          onClick={() => setOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Copy a whole day"
-        >
-          <div
-            className="flex w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] text-left shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={() => setOpen(false)} label={"Copy a whole day"}>
             <div className="flex items-center gap-2 border-b border-border p-4">
               <p className="flex-1 text-sm font-semibold">
                 Copy a whole day into {formatHuman(date)}
@@ -141,8 +132,7 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
               </p>
               {message && <p className="text-sm text-destructive">{message}</p>}
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   );

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createMealFromSlotAction } from "@/app/(app)/track/actions";
 import { formatHuman } from "@/lib/dates";
+import { Modal } from "@/components/ui/modal";
 import type { SlotKey } from "@/lib/schemas";
 
 /**
@@ -133,17 +134,7 @@ export function SaveSlotMealButton({
         <BookmarkPlus className="size-4" /> Save these {count} as a meal
       </button>
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          onClick={() => setOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Save ${slotLabel} as a meal`}
-        >
-          <div
-            className="flex w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={() => setOpen(false)} label={`Save ${slotLabel} as a meal`}>
             <div className="flex items-center gap-2 border-b border-border p-4">
               <p className="flex-1 text-sm font-semibold">Save {slotLabel} as a meal</p>
               <button
@@ -163,8 +154,7 @@ export function SaveSlotMealButton({
                 onDone={() => setOpen(false)}
               />
             </div>
-          </div>
-        </div>
+          </Modal>
       )}
     </>
   );

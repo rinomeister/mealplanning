@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { deleteMessage } from "@/lib/format";
-import { Loader2, Pencil, Plus, ScanBarcode, Trash2, X } from "lucide-react";
+import { Globe, Loader2, Pencil, Plus, ScanBarcode, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ScanProductDialog } from "@/components/scan-product-dialog";
+import { OffSearchDialog } from "@/components/off-search-dialog";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,9 +18,11 @@ import {
 } from "@/components/product-fields";
 import { hasAnyMacro } from "@/lib/macros";
 import type { PickerProduct } from "@/lib/products";
+import { Modal } from "@/components/ui/modal";
 import {
   createProductAction,
   deleteProductAction,
+  importOffProductAction,
   productUpcomingCountAction,
   updateProductAction,
 } from "@/app/(app)/products/actions";
@@ -61,17 +67,7 @@ function ProductDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={product ? "Edit product" : "New product"}
-    >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={product ? "Edit product" : "New product"} className="overflow-hidden">
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
           <p className="text-sm font-semibold">
             {product ? "Edit product" : "New product"}
@@ -100,19 +96,62 @@ function ProductDialog({
             Save
           </Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }
 
-export function NewProductButton({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false);
+/**
+ * The three ways to add a product: type it in, scan its barcode, or search
+ * Open Food Facts by name. Scans and search picks are saved by barcode.
+ */
+export function ProductAddActions({ className }: { className?: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState<null | "new" | "scan" | "search">(null);
+  const close = () => setOpen(null);
+  const btn =
+    "flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-medium active:bg-muted hover:bg-muted";
+
   return (
     <>
-      <Button type="button" className={className} onClick={() => setOpen(true)}>
-        <Plus /> New product
-      </Button>
-      {open && <ProductDialog product={null} onClose={() => setOpen(false)} />}
+      <div className={cn("flex gap-2", className)}>
+        <button type="button" className={cn(btn, "border-primary bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80")} onClick={() => setOpen("new")}>
+          <Plus className="size-4" /> New
+        </button>
+        <button type="button" className={btn} onClick={() => setOpen("scan")}>
+          <ScanBarcode className="size-4" /> Scan
+        </button>
+        <button type="button" className={btn} onClick={() => setOpen("search")}>
+          <Globe className="size-4" /> Search online
+        </button>
+      </div>
+      {open === "new" && <ProductDialog product={null} onClose={close} />}
+      {open === "scan" && (
+        <ScanProductDialog
+          title="Scan a product"
+          confirmLabel="Save to products"
+          askGrams={false}
+          onConfirm={async (p) => {
+            const res = await importOffProductAction({
+              barcode: p.barcode,
+              name: p.name,
+              brand: p.brand,
+              servingLabel: p.servingLabel,
+              servingGrams: p.servingGrams,
+              ...p.per100g,
+            });
+            if (res.ok) router.refresh();
+            return res.ok;
+          }}
+          onClose={close}
+        />
+      )}
+      {open === "search" && (
+        <OffSearchDialog
+          title="Add from Open Food Facts"
+          onPick={() => router.refresh()}
+          onClose={close}
+        />
+      )}
     </>
   );
 }

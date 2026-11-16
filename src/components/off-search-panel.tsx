@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Globe, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { importOffProductAction } from "@/app/(app)/products/actions";
@@ -21,11 +21,18 @@ type SearchState =
 export function OffSearchPanel({
   query,
   onPick,
+  auto = false,
 }: {
   query: string;
   onPick: (product: PickerProduct) => void;
+  /** Search as soon as `query` changes (caller only updates it on submit). */
+  auto?: boolean;
 }) {
-  const [state, setState] = useState<SearchState>({ phase: "idle" });
+  const [state, setState] = useState<SearchState>(() =>
+    auto && query.trim().length >= 2
+      ? { phase: "loading", query: query.trim() }
+      : { phase: "idle" },
+  );
   const [pickingCode, setPickingCode] = useState<string | null>(null);
   const [pickError, setPickError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -37,17 +44,20 @@ export function OffSearchPanel({
     if (q.length < 2) return;
     setState({ phase: "loading", query: q });
     setPickError("");
-    try {
-      const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
-      const data = (await res.json()) as
-        | { ok: true; hits: OffSearchHit[] }
-        | { ok: false; error: string };
-      if (data.ok) setState({ phase: "done", query: q, hits: data.hits });
-      else setState({ phase: "error", query: q, error: data.error });
-    } catch {
-      setState({ phase: "error", query: q, error: "Search failed. Check your connection." });
-    }
+    setState(await fetchOff(q));
   }
+
+  // Auto mode searches once on mount; callers remount (key) per new query.
+  useEffect(() => {
+    if (!auto || q.length < 2) return;
+    let cancelled = false;
+    void fetchOff(q).then((next) => {
+      if (!cancelled) setState(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auto, q]);
 
   function pick(hit: OffSearchHit) {
     setPickingCode(hit.barcode);
@@ -134,4 +144,18 @@ export function OffSearchPanel({
       {pickError && <p className="px-4 pb-3 text-sm text-destructive">{pickError}</p>}
     </div>
   );
+}
+
+async function fetchOff(q: string): Promise<SearchState> {
+  try {
+    const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}`);
+    const data = (await res.json()) as
+      | { ok: true; hits: OffSearchHit[] }
+      | { ok: false; error: string };
+    return data.ok
+      ? { phase: "done", query: q, hits: data.hits }
+      : { phase: "error", query: q, error: data.error };
+  } catch {
+    return { phase: "error", query: q, error: "Search failed. Check your connection." };
+  }
 }

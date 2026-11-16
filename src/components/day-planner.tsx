@@ -31,6 +31,7 @@ import { groupByUsage, type Usage } from "@/lib/usage";
 import type { SlotKey } from "@/lib/schemas";
 
 import type { DayEntry } from "@/lib/day-entry";
+import { Modal } from "@/components/ui/modal";
 
 export type { DayEntry };
 
@@ -360,17 +361,7 @@ export function MealPickerDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Add meal to ${slotLabel}`}
-    >
-      <div
-        className="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={`Add meal to ${slotLabel}`}>
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
           {view === "save" && (
             <button
@@ -542,7 +533,6 @@ export function MealPickerDialog({
             </div>
           </>
         )}
-      </div>
-    </div>
+      </Modal>
   );
 }

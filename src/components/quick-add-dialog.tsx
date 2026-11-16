@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseDecimal } from "@/lib/utils";
+import { Modal } from "@/components/ui/modal";
 import { quickAddAction } from "@/app/(app)/track/actions";
 
 const FIELDS = [
@@ -77,17 +78,7 @@ export function QuickAddDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Quick add to ${slotLabel}`}
-    >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={`Quick add to ${slotLabel}`} className="overflow-hidden">
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
           <p className="text-sm font-semibold">Quick add to {slotLabel}</p>
           <button
@@ -146,7 +137,6 @@ export function QuickAddDialog({
             Log to {slotLabel}
           </Button>
         </form>
-      </div>
-    </div>
+      </Modal>
   );
 }

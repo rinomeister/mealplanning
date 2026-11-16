@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { AlertTriangle, Loader2, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { hasAnyMacro, scaleGrams, type MealMacros } from "@/lib/macros";
 import { upsertProductMacrosAction } from "@/app/(app)/track/actions";
 import type { BarcodeLookupResult } from "@/lib/barcode";
 import { PortionChips } from "@/components/portion-chips";
+import { Modal } from "@/components/ui/modal";
 import type { Portion } from "@/lib/products";
 
 type FoundResult = Extract<BarcodeLookupResult, { found: true }>;
@@ -51,12 +52,15 @@ export function ScanProductDialog({
   title,
   confirmLabel,
   gramsLabel = "How many grams?",
+  askGrams = true,
   onConfirm,
   onClose,
 }: {
   title: string;
   confirmLabel: string;
   gramsLabel?: string;
+  /** False when just saving the product (Products page): no weight step. */
+  askGrams?: boolean;
   onConfirm: (product: ScannedProduct, grams: number) => boolean | Promise<boolean>;
   onClose: () => void;
 }) {
@@ -86,14 +90,6 @@ export function ScanProductDialog({
   const [editMacros, setEditMacros] = useState<Record<string, string>>({});
 
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const loadFound = useCallback((r: FoundResult) => {
     setCode(r.code);
@@ -218,8 +214,8 @@ export function ScanProductDialog({
   }
 
   function confirm() {
-    const g = parseDecimal(grams);
-    if (!Number.isFinite(g) || g <= 0) {
+    const g = askGrams ? parseDecimal(grams) : 0;
+    if (askGrams && (!Number.isFinite(g) || g <= 0)) {
       setMessage("Enter a weight in grams.");
       return;
     }
@@ -248,17 +244,7 @@ export function ScanProductDialog({
   const missingMacros = !hasAnyMacro(per100g);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div
-        className="flex max-h-[90vh] w-full flex-col overflow-y-auto rounded-t-2xl bg-card pb-[env(safe-area-inset-bottom)] shadow-lg sm:max-w-md sm:rounded-2xl sm:pb-0"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} label={title}>
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
           <p className="text-sm font-semibold">{title}</p>
           <button
@@ -399,6 +385,7 @@ export function ScanProductDialog({
                 </div>
               )}
 
+              {askGrams && (
               <div className="flex flex-col gap-2 border-t border-border pt-3">
                 <Label htmlFor="grams">{gramsLabel}</Label>
                 <div className="flex items-center gap-2">
@@ -431,6 +418,7 @@ export function ScanProductDialog({
                   </p>
                 )}
               </div>
+              )}
 
               {message && <p className="text-sm text-destructive">{message}</p>}
 
@@ -446,8 +434,7 @@ export function ScanProductDialog({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </Modal>
   );
 }
 
