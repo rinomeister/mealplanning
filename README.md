@@ -63,7 +63,10 @@ plan days, and build a shopping list.
 - **Ingredients** are hybrid: `qty` + `unit` + `name`, all optional. The shopping list sums items
   that share a name and a compatible unit — `500 g` + `0.75 kg` of flour becomes one `1.25 kg`
   line (mass and volume convert; other units only merge with themselves) — and shows `+` when
-  some occurrences had no quantity.
+  some occurrences had no quantity. Planned products are listed too (as grams). Items are grouped
+  by aisle — guessed from English/Croatian keywords in `src/lib/aisles.ts`, overridable per
+  item from its `⋮` menu — and can be marked **already at home**, which keeps them off the list
+  until you tap "Need it". "Clear checked" only clears this trip's ticks.
 - **Entries keep their own macros.** Logging a meal, product or quick add copies its macros onto
   the day entry. Editing a meal or product afterwards updates today and future entries only, so
   past days never change.
@@ -77,6 +80,13 @@ plan days, and build a shopping list.
 - **Meal sharing**: Share on a meal gives an 8-character code and a `/share/<code>` link. The
   recipient previews the meal and imports their own independent copy (tags matched by name).
   "Stop sharing" kills the code; existing copies stay.
+- **Favorites and recents**: star products (per user) or meals; the Track pickers show
+  Favorites and Recent first, and remember last time's amount ("+ 150 g" logs it again).
+- **Save as meal** lives in a section's `⋮` menu, under any section with 2+ items, and in the
+  meal picker.
+- **Weighing the pot**: give a meal its cooked batch weight (meal page or form) and it's logged
+  in grams; servings = grams × serves ÷ batch weight. Re-weighing a new pot rescales today's and
+  future entries (their grams stay); past days are untouched.
 - **Servings**: a meal describes one serving; each calendar entry has a `servings` multiplier that
   scales both macros (day totals) and shopping quantities.
 - **Day status**: entries default to `PLANNED`. Unchecking "ate this" marks an entry `SKIPPED`

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { pickMacros, type MealMacros } from "@/lib/macros";
+import { gramsPerServing, pickMacros, type MealMacros } from "@/lib/macros";
 import { dbDateToKey, keyToDbDate, todayKey, type DateKey } from "@/lib/dates";
 import type { SlotKey } from "@/lib/schemas";
 
@@ -26,6 +26,35 @@ export async function refreshUpcomingEntries(
     where: { ...ref, date: { gte: keyToDbDate(todayKey()) } },
     data: pickMacros(macros),
   });
+}
+
+/**
+ * After a meal's batch weight or serving count changes, re-express today's and
+ * future entries against the new batch: an entry logged as "350 g" stays 350 g
+ * (its servings are recomputed), and one logged by servings gains a weight.
+ * Without a batch weight, upcoming entries drop their grams and keep servings.
+ */
+export async function rescaleUpcomingBatchEntries(
+  mealId: string,
+  meal: { cookedGrams: number | null; serves: number },
+) {
+  const today = keyToDbDate(todayKey());
+  const gps = gramsPerServing(meal);
+  if (gps == null) {
+    await prisma.planEntry.updateMany({
+      where: { mealId, date: { gte: today }, grams: { not: null } },
+      data: { grams: null },
+    });
+    return;
+  }
+  await prisma.$transaction([
+    prisma.$executeRaw`
+      UPDATE "PlanEntry" SET "servings" = "grams" / ${gps}
+      WHERE "mealId" = ${mealId} AND "grams" IS NOT NULL AND "date" >= ${today}`,
+    prisma.$executeRaw`
+      UPDATE "PlanEntry" SET "grams" = "servings" * ${gps}
+      WHERE "mealId" = ${mealId} AND "grams" IS NULL AND "date" >= ${today}`,
+  ]);
 }
 
 const MACRO_SELECT = {
@@ -58,7 +87,7 @@ export async function copyEntries(
     },
     orderBy: [{ date: "asc" }, { slot: "asc" }, { position: "asc" }],
     include: {
-      meal: { select: MACRO_SELECT },
+      meal: { select: { ...MACRO_SELECT, cookedGrams: true, serves: true } },
       product: { select: MACRO_SELECT },
     },
   });
@@ -81,14 +110,22 @@ export async function copyEntries(
       const key = `${date}|${s.slot}`;
       const position = nextPos.get(key) ?? 0;
       nextPos.set(key, position + 1);
+      // A meal eaten by weight keeps its weight against today's batch.
+      let { servings, grams } = s;
+      if (s.meal) {
+        const gps = gramsPerServing(s.meal);
+        if (gps == null) grams = null;
+        else if (grams != null) servings = grams / gps;
+        else grams = servings * gps;
+      }
       return {
         userId,
         date: keyToDbDate(date),
         slot: s.slot,
         mealId: s.mealId,
         productId: s.productId,
-        servings: s.servings,
-        grams: s.grams,
+        servings,
+        grams,
         label: s.label,
         position,
         ...pickMacros(s.meal ?? s.product ?? s),

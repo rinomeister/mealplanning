@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { ChevronLeft, Loader2, Plus, ScanBarcode, Search, X } from "lucide-react";
+import {
+  ChevronLeft,
+  History,
+  Loader2,
+  Plus,
+  ScanBarcode,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +22,13 @@ import {
   type ProductDraft,
 } from "@/components/product-fields";
 import { parseDecimal } from "@/lib/utils";
-import { hasAnyMacro, scaleGrams } from "@/lib/macros";
-import { createProductAction } from "@/app/(app)/products/actions";
+import { fmtMacro, hasAnyMacro, scaleGrams } from "@/lib/macros";
+import {
+  createProductAction,
+  setProductFavoriteAction,
+} from "@/app/(app)/products/actions";
+import { EMPTY_USAGE, groupByUsage, type Usage } from "@/lib/usage";
+import { cn } from "@/lib/utils";
 import { OffSearchPanel } from "@/components/off-search-panel";
 import { PortionChips } from "@/components/portion-chips";
 import type { PickerProduct } from "@/lib/products";
@@ -43,12 +57,15 @@ export function AddProductDialog({
   title,
   confirmLabel,
   products,
+  usage = EMPTY_USAGE,
   onLog,
   onClose,
 }: {
   title: string;
   confirmLabel: string;
   products: PickerProduct[];
+  /** Recents, last amounts and stars, for the shortcuts at the top. */
+  usage?: Usage;
   onLog: (productId: string, grams: number) => Promise<boolean>;
   onClose: () => void;
 }) {
@@ -58,6 +75,8 @@ export function AddProductDialog({
   const [grams, setGrams] = useState("100");
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
   const [message, setMessage] = useState("");
+  const [favorites, setFavorites] = useState<string[]>(usage.favoriteIds);
+  const [quickId, setQuickId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -68,22 +87,62 @@ export function AddProductDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const results = useMemo(() => {
-    const q = query.trim();
-    const list = q ? products.filter((p) => matches(p, q)) : products;
-    return list.slice(0, 50);
-  }, [products, query]);
+  const q = query.trim();
+  const sections = useMemo(() => {
+    if (q) {
+      // Searching: one list, starred matches first.
+      const fav = new Set(favorites);
+      const hits = products.filter((p) => matches(p, q));
+      hits.sort((a, b) => Number(fav.has(b.id)) - Number(fav.has(a.id)));
+      return [{ key: "hits", title: null, items: hits.slice(0, 50) }];
+    }
+    const g = groupByUsage(products, { ...usage, favoriteIds: favorites });
+    return [
+      { key: "fav", title: "Favorites", items: g.favorites },
+      { key: "recent", title: "Recent", items: g.recent },
+      {
+        key: "all",
+        title: g.favorites.length + g.recent.length > 0 ? "All products" : null,
+        items: g.rest.slice(0, 50),
+      },
+    ].filter((sec) => sec.items.length > 0);
+  }, [products, q, usage, favorites]);
+  const resultCount = sections.reduce((n, sec) => n + sec.items.length, 0);
+
+  const lastGrams = (id: string) => usage.last[id]?.grams ?? null;
 
   function choose(p: PickerProduct) {
     setSelected(p);
-    setGrams(String(p.servingGrams ?? 100));
+    setGrams(String(lastGrams(p.id) ?? p.servingGrams ?? 100));
     setMessage("");
     setPhase("detail");
   }
 
+  /** One tap from the list: log the same amount as last time. */
+  function logAgain(p: PickerProduct, g: number) {
+    setQuickId(p.id);
+    startTransition(async () => {
+      const ok = await onLog(p.id, g);
+      setQuickId(null);
+      if (ok) onClose();
+      else setMessage("Couldn't log it — try again.");
+    });
+  }
+
+  function toggleFavorite(id: string) {
+    const on = !favorites.includes(id);
+    setFavorites((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
+    startTransition(async () => {
+      const res = await setProductFavoriteAction(id, on);
+      if (!res.ok) {
+        setFavorites((prev) => (on ? prev.filter((x) => x !== id) : [...prev, id]));
+      }
+    });
+  }
+
   function beginCreate() {
     // Carry the search text over as the name — they've already typed it once.
-    setDraft({ ...EMPTY_DRAFT, name: query.trim() });
+    setDraft({ ...EMPTY_DRAFT, name: q });
     setMessage("");
     setPhase("create");
   }
@@ -168,6 +227,24 @@ export function AddProductDialog({
           <p className="flex-1 text-sm font-semibold">
             {phase === "create" ? "New product" : title}
           </p>
+          {phase === "detail" && selected && (
+            <button
+              type="button"
+              onClick={() => toggleFavorite(selected.id)}
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+              aria-label={
+                favorites.includes(selected.id) ? "Remove from favorites" : "Add to favorites"
+              }
+              aria-pressed={favorites.includes(selected.id)}
+            >
+              <Star
+                className={cn(
+                  "size-5",
+                  favorites.includes(selected.id) && "fill-amber-400 text-amber-400",
+                )}
+              />
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -195,43 +272,83 @@ export function AddProductDialog({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {results.length === 0 ? (
+              {message && (
+                <p className="px-4 pt-3 text-sm text-destructive">{message}</p>
+              )}
+              {resultCount === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                   {products.length === 0
                     ? "No products yet. Search Open Food Facts or add one below."
-                    : `None of your products match “${query.trim()}”.`}
+                    : `None of your products match “${q}”.`}
                 </p>
               ) : (
-                <div className="flex flex-col">
-                  {results.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => choose(p)}
-                      className="flex min-h-14 items-center gap-3 border-b border-border px-4 text-left last:border-b-0 active:bg-muted"
-                    >
-                      <div className="min-w-0 flex-1 py-2">
-                        <p className="truncate text-sm font-medium">{p.name}</p>
-                        {p.brand && (
-                          <p className="truncate text-xs text-muted-foreground">
-                            {p.brand}
-                          </p>
-                        )}
-                      </div>
-                      {p.barcode && (
-                        <ScanBarcode
-                          className="size-3.5 shrink-0 text-muted-foreground"
-                          aria-label="Scanned"
-                        />
-                      )}
-                      {p.per100g.kcal != null && (
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {Math.round(p.per100g.kcal)} kcal/100g
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                sections.map((sec) => (
+                  <div key={sec.key} className="flex flex-col">
+                    {sec.title && (
+                      <p className="flex items-center gap-1.5 bg-muted/60 px-4 py-1.5 text-xs font-semibold text-muted-foreground">
+                        {sec.key === "fav" && <Star className="size-3.5" />}
+                        {sec.key === "recent" && <History className="size-3.5" />}
+                        {sec.title}
+                      </p>
+                    )}
+                    {sec.items.map((p) => {
+                      const again = lastGrams(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex min-h-14 items-center border-b border-border last:border-b-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => choose(p)}
+                            className="flex min-w-0 flex-1 items-center gap-3 self-stretch px-4 text-left active:bg-muted"
+                          >
+                            <div className="min-w-0 flex-1 py-2">
+                              <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                                {favorites.includes(p.id) && (
+                                  <Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
+                                )}
+                                <span className="truncate">{p.name}</span>
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {[
+                                  p.brand,
+                                  p.per100g.kcal != null
+                                    ? `${Math.round(p.per100g.kcal)} kcal/100g`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </div>
+                            {p.barcode && again == null && (
+                              <ScanBarcode
+                                className="size-3.5 shrink-0 text-muted-foreground"
+                                aria-label="Scanned"
+                              />
+                            )}
+                          </button>
+                          {again != null && (
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => logAgain(p, again)}
+                              className="mr-3 inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 text-xs font-medium text-primary active:bg-muted disabled:opacity-60"
+                              aria-label={`Log ${fmtMacro(again)} g of ${p.name} again`}
+                            >
+                              {quickId === p.id ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Plus className="size-3.5" />
+                              )}
+                              {fmtMacro(again)} g
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
               )}
               <OffSearchPanel query={query} onPick={choose} />
             </div>
@@ -244,7 +361,7 @@ export function AddProductDialog({
                 onClick={beginCreate}
               >
                 <Plus />
-                {query.trim() ? `Add “${query.trim()}”` : "Add a new product"}
+                {q ? `Add “${q}”` : "Add a new product"}
               </Button>
             </div>
           </>
@@ -291,7 +408,14 @@ export function AddProductDialog({
             </div>
 
             <div className="flex flex-col gap-2 border-t border-border pt-3">
-              <Label htmlFor="add-grams">How much did you eat? (grams)</Label>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="add-grams">How much did you eat? (grams)</Label>
+                {lastGrams(selected.id) != null && (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Last time {fmtMacro(lastGrams(selected.id)!)} g
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Input
                   id="add-grams"

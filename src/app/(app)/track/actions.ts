@@ -20,7 +20,12 @@ import {
   type ProductMacrosInputRaw,
   type QuickAddInputRaw,
 } from "@/lib/schemas";
-import { hasAnyMacro, pickMacros, sumDayEntries } from "@/lib/macros";
+import {
+  gramsPerServing,
+  hasAnyMacro,
+  pickMacros,
+  sumDayEntries,
+} from "@/lib/macros";
 import { formatHuman, keyToDbDate } from "@/lib/dates";
 import { copyEntries, nextPosition, refreshUpcomingEntries } from "@/lib/entries";
 
@@ -193,20 +198,48 @@ export async function quickAddAction(
   return { ok: true };
 }
 
-/** Update the eaten weight (grams) of a logged product entry. */
+/**
+ * Update the eaten weight (grams) of a logged product, or of a meal from a
+ * weighed batch — whose servings are then recomputed from the weight.
+ */
 export async function setGramsAction(
   id: string,
   grams: number,
 ): Promise<ActionResult> {
   const userId = await requireUserId();
-  if (!Number.isFinite(grams) || grams <= 0) {
+  if (!Number.isFinite(grams) || grams <= 0 || grams > 100000) {
     return { ok: false, error: "Grams must be positive." };
   }
-  const { count } = await prisma.planEntry.updateMany({
+  const entry = await prisma.planEntry.findFirst({
     where: { id, userId },
-    data: { grams },
+    select: {
+      mealId: true,
+      productId: true,
+      servings: true,
+      grams: true,
+      meal: { select: { cookedGrams: true, serves: true } },
+    },
   });
-  if (count === 0) return { ok: false, error: "Entry not found." };
+  if (!entry || (!entry.mealId && !entry.productId)) {
+    return { ok: false, error: "Entry not found." };
+  }
+
+  let servings = entry.servings;
+  if (entry.mealId) {
+    // The entry's own grams-per-serving is the batch it was logged from; fall
+    // back to the meal's current batch for entries logged before weighing.
+    const gps =
+      entry.grams != null && entry.servings > 0
+        ? entry.grams / entry.servings
+        : entry.meal
+          ? gramsPerServing(entry.meal)
+          : null;
+    if (gps == null) {
+      return { ok: false, error: "Weigh the batch on the meal first." };
+    }
+    servings = grams / gps;
+  }
+  await prisma.planEntry.update({ where: { id }, data: { grams, servings } });
   revalidatePath("/track");
   revalidatePath("/calendar");
   revalidatePath("/");

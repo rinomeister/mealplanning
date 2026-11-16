@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import {
   BookmarkPlus,
-  Check,
   ChevronLeft,
   CopyPlus,
   CalendarClock,
@@ -12,14 +10,11 @@ import {
   MoreVertical,
   X,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import {
-  copySlotFromDateAction,
-  createMealFromSlotAction,
-} from "@/app/(app)/track/actions";
+import { SaveSlotMealForm } from "@/components/save-slot-meal";
+import { copySlotFromDateAction } from "@/app/(app)/track/actions";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 import type { SlotKey } from "@/lib/schemas";
 
@@ -44,7 +39,6 @@ export function SlotActionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
-  const [name, setName] = useState("");
   const [copyDate, setCopyDate] = useState(addDaysKey(date, -1));
   const [message, setMessage] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -68,26 +62,11 @@ export function SlotActionsMenu({
   }
 
   function openMenu() {
-    setName(`${slotLabel} · ${formatHuman(date)}`);
     setCopyDate(addDaysKey(date, -1));
     setMessage("");
     setSavedId(null);
     setView("menu");
     setOpen(true);
-  }
-
-  function saveMeal() {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setMessage("Give the meal a name.");
-      return;
-    }
-    setMessage("");
-    startTransition(async () => {
-      const res = await createMealFromSlotAction({ date, slot, name: trimmed });
-      if (res.ok) setSavedId(res.id);
-      else setMessage(res.error);
-    });
   }
 
   function copyFrom(fromDate: string) {
@@ -183,47 +162,14 @@ export function SlotActionsMenu({
             )}
 
             {view === "save" && (
-              <div className="flex flex-col gap-4 p-4">
-                {savedId ? (
-                  <div className="flex flex-col gap-4">
-                    <p className="flex items-center gap-2 text-sm font-medium text-primary">
-                      <Check className="size-4" /> Saved “{name.trim()}” as a meal.
-                    </p>
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/meals/${savedId}`}
-                        className={cn(buttonVariants({ variant: "outline" }), "flex-1")}
-                      >
-                        View meal
-                      </Link>
-                      <Button type="button" className="flex-1" onClick={close}>
-                        Done
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="save-meal-name">Meal name</Label>
-                      <Input
-                        id="save-meal-name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        autoFocus
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Macros are saved from this section&apos;s current totals.
-                      </p>
-                    </div>
-                    {message && (
-                      <p className="text-sm text-destructive">{message}</p>
-                    )}
-                    <Button type="button" disabled={isPending} onClick={saveMeal}>
-                      {isPending && <Loader2 className="size-4 animate-spin" />}
-                      Save as meal
-                    </Button>
-                  </>
-                )}
+              <div className="p-4">
+                <SaveSlotMealForm
+                  date={date}
+                  slot={slot}
+                  slotLabel={slotLabel}
+                  onDone={close}
+                  onSaved={setSavedId}
+                />
               </div>
             )}
 

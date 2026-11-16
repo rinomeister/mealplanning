@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, Pencil } from "lucide-react";
 import { ShareMealButton } from "@/components/share-meal-button";
+import { BatchWeightCard } from "@/components/batch-weight-card";
+import { FavoriteMealButton } from "@/components/favorite-meal-button";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
@@ -50,12 +52,15 @@ export default async function MealDetailPage({
         title={meal.name}
         description={meal.servingLabel ? `Per serving: ${meal.servingLabel}` : undefined}
         action={
-          <Link
-            href={`/meals/${meal.id}/edit`}
-            className={cn(buttonVariants({ variant: "outline" }))}
-          >
-            <Pencil /> Edit
-          </Link>
+          <div className="flex gap-2">
+            <FavoriteMealButton mealId={meal.id} initial={meal.favorite} />
+            <Link
+              href={`/meals/${meal.id}/edit`}
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              <Pencil /> Edit
+            </Link>
+          </div>
         }
       />
 
@@ -104,6 +109,13 @@ export default async function MealDetailPage({
             </CardContent>
           </Card>
         )}
+
+        <BatchWeightCard
+          mealId={meal.id}
+          serves={meal.serves}
+          cookedGrams={meal.cookedGrams}
+          kcalPerServing={meal.kcal}
+        />
 
         <Card>
           <CardHeader>

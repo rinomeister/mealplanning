@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Package, ScanBarcode, Search, X } from "lucide-react";
+import { Check, History, Package, ScanBarcode, Search, Star, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { OffSearchPanel } from "@/components/off-search-panel";
 import type { PickerProduct } from "@/lib/products";
+import { EMPTY_USAGE, groupByUsage, type Usage } from "@/lib/usage";
 
 /** Case-insensitive match across name and brand, so "cekin" finds the brand. */
 function matches(p: PickerProduct, q: string): boolean {
@@ -23,10 +24,13 @@ function matches(p: PickerProduct, q: string): boolean {
  */
 export function ProductPickerDialog({
   products,
+  usage = EMPTY_USAGE,
   onPick,
   onClose,
 }: {
   products: PickerProduct[];
+  /** Favorites and recents float to the top when nothing is typed. */
+  usage?: Usage;
   onPick: (product: PickerProduct) => void;
   onClose: () => void;
 }) {
@@ -42,11 +46,22 @@ export function ProductPickerDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const results = useMemo(() => {
+  const favSet = useMemo(() => new Set(usage.favoriteIds), [usage]);
+  const { results, firstRestIndex, recentCount } = useMemo(() => {
     const q = query.trim();
-    const list = q ? products.filter((p) => matches(p, q)) : products;
-    return list.slice(0, 50);
-  }, [products, query]);
+    if (q) {
+      const hits = products.filter((p) => matches(p, q));
+      hits.sort((a, b) => Number(favSet.has(b.id)) - Number(favSet.has(a.id)));
+      return { results: hits.slice(0, 50), firstRestIndex: -1, recentCount: 0 };
+    }
+    const g = groupByUsage(products, usage);
+    const top = [...g.favorites, ...g.recent];
+    return {
+      results: [...top, ...g.rest].slice(0, 50 + top.length),
+      firstRestIndex: top.length > 0 ? top.length : -1,
+      recentCount: g.recent.length,
+    };
+  }, [products, query, usage, favSet]);
 
   function pick(p: PickerProduct) {
     onPick(p);
@@ -112,15 +127,24 @@ export function ProductPickerDialog({
             </p>
           ) : (
             <div className="flex flex-col">
-              {results.map((p) => (
+              {results.map((p, i) => (
+                <div key={p.id} className="contents">
+                {i === firstRestIndex && (
+                  <p className="bg-muted/60 px-4 py-1.5 text-xs font-semibold text-muted-foreground">
+                    All products
+                  </p>
+                )}
                 <button
-                  key={p.id}
                   type="button"
                   onClick={() => pick(p)}
                   className="flex min-h-14 items-center gap-3 border-b border-border px-4 text-left last:border-b-0 active:bg-muted"
                 >
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    {p.barcode ? (
+                    {favSet.has(p.id) ? (
+                      <Star className="size-4 fill-amber-400 text-amber-400" />
+                    ) : firstRestIndex > 0 && i < firstRestIndex && recentCount > 0 ? (
+                      <History className="size-4" />
+                    ) : p.barcode ? (
                       <ScanBarcode className="size-4" />
                     ) : (
                       <Package className="size-4" />
@@ -140,6 +164,7 @@ export function ProductPickerDialog({
                     </span>
                   )}
                 </button>
+                </div>
               ))}
             </div>
           )}

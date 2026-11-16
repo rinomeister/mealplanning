@@ -8,7 +8,7 @@ import { MacroSummary } from "@/components/macro-summary";
 import { AddMealControl, PlanEntryRow } from "@/components/day-planner";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate } from "@/lib/dates";
-import { sumDayEntries } from "@/lib/macros";
+import { gramsPerServing, sumDayEntries } from "@/lib/macros";
 import { toDayEntry } from "@/lib/day-entry";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,7 +27,7 @@ export default async function DayPage({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
       include: {
-        meal: { select: { name: true } },
+        meal: { select: { name: true, cookedGrams: true, serves: true } },
         product: { select: { name: true } },
       },
     }),
@@ -38,6 +38,9 @@ export default async function DayPage({
         id: true,
         name: true,
         kcal: true,
+        favorite: true,
+        cookedGrams: true,
+        serves: true,
         tags: { select: { tagId: true } },
       },
     }),
@@ -53,6 +56,8 @@ export default async function DayPage({
     name: m.name,
     kcal: m.kcal,
     tagIds: m.tags.map((t) => t.tagId),
+    favorite: m.favorite,
+    gramsPerServing: gramsPerServing(m),
   }));
 
   const counted = entries.filter((e) => e.status !== "SKIPPED");

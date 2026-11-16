@@ -65,6 +65,20 @@ export function addMacros(a: Macros, b: Macros): Macros {
   };
 }
 
+/**
+ * Grams in one serving of a meal whose whole cooked batch was weighed, or null
+ * when it wasn't. Logging 350 g of it is then 350 / gramsPerServing servings.
+ */
+export function gramsPerServing(meal: {
+  cookedGrams: number | null;
+  serves: number;
+}): number | null {
+  if (meal.cookedGrams == null || meal.cookedGrams <= 0 || meal.serves <= 0) {
+    return null;
+  }
+  return meal.cookedGrams / meal.serves;
+}
+
 /** Copy just the six macro columns off any row that has them. */
 export function pickMacros(m: MealMacros): MealMacros {
   return {

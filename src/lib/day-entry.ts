@@ -1,4 +1,4 @@
-import { hasAnyMacro, type MealMacros } from "@/lib/macros";
+import { gramsPerServing, hasAnyMacro, type MealMacros } from "@/lib/macros";
 
 /**
  * A rendered day entry — a meal (scaled by `servings`), a product (scaled by
@@ -16,6 +16,12 @@ export type DayEntry = {
   status: "PLANNED" | "EATEN" | "SKIPPED";
   kcalBasis: number | null;
   hasMacros: boolean;
+  /**
+   * Meals from a weighed batch: grams in one serving, so the row can show and
+   * edit grams. The entry's own ratio wins (it's the batch it was logged from);
+   * otherwise the meal's current batch.
+   */
+  gramsPerServing: number | null;
 };
 
 type EntryRow = MealMacros & {
@@ -26,7 +32,7 @@ type EntryRow = MealMacros & {
   label: string | null;
   mealId: string | null;
   productId: string | null;
-  meal: { name: string } | null;
+  meal: { name: string; cookedGrams?: number | null; serves?: number } | null;
   product: { name: string } | null;
 };
 
@@ -45,5 +51,13 @@ export function toDayEntry(e: EntryRow): DayEntry {
     status: e.status,
     kcalBasis: e.kcal,
     hasMacros: hasAnyMacro(e),
+    gramsPerServing:
+      kind !== "meal"
+        ? null
+        : e.grams != null && e.servings > 0
+          ? e.grams / e.servings
+          : e.meal?.cookedGrams != null && e.meal.serves != null
+            ? gramsPerServing({ cookedGrams: e.meal.cookedGrams, serves: e.meal.serves })
+            : null,
   };
 }

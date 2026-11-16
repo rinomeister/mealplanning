@@ -5,22 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { copyWeekSchema, planEntrySchema, type CopyWeekInput } from "@/lib/schemas";
 import { addDaysKey, keyToDbDate } from "@/lib/dates";
-import { pickMacros } from "@/lib/macros";
+import { gramsPerServing, pickMacros } from "@/lib/macros";
 import { copyEntries, nextPosition } from "@/lib/entries";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * Add a meal to a day+slot. For a meal whose batch was weighed, `grams` (when
+ * given) sets the amount and servings follow from it; otherwise the entry gets
+ * the weight its servings come to, so it shows and edits in grams.
+ */
 export async function addPlanEntryAction(input: {
   date: string;
   slot: string;
   mealId: string;
   servings: number | string;
+  grams?: number | string | null;
 }): Promise<ActionResult> {
   const userId = await requireUserId();
   const parsed = planEntrySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid entry." };
-  const { date, slot, mealId, servings } = parsed.data;
+  const { date, slot, mealId } = parsed.data;
 
   const meal = await prisma.meal.findFirst({
     where: { id: mealId, userId },
@@ -32,9 +38,19 @@ export async function addPlanEntryAction(input: {
       carbs: true,
       sugar: true,
       fiber: true,
+      cookedGrams: true,
+      serves: true,
     },
   });
   if (!meal) return { ok: false, error: "Meal not found." };
+
+  let servings = parsed.data.servings;
+  let grams: number | null = null;
+  const gps = gramsPerServing(meal);
+  if (gps != null) {
+    grams = parsed.data.grams ?? servings * gps;
+    servings = grams / gps;
+  }
 
   await prisma.planEntry.create({
     data: {
@@ -43,6 +59,7 @@ export async function addPlanEntryAction(input: {
       slot,
       mealId,
       servings,
+      grams,
       position: await nextPosition(userId, date, slot),
       ...pickMacros(meal),
     },
@@ -78,11 +95,17 @@ export async function setServingsAction(
   if (!Number.isFinite(servings) || servings <= 0) {
     return { ok: false, error: "Servings must be positive." };
   }
-  const { count } = await prisma.planEntry.updateMany({
+  const entry = await prisma.planEntry.findFirst({
     where: { id, userId },
-    data: { servings },
+    select: { servings: true, grams: true, mealId: true },
   });
-  if (count === 0) return { ok: false, error: "Entry not found." };
+  if (!entry) return { ok: false, error: "Entry not found." };
+  // A meal eaten by weight keeps grams and servings in step.
+  const grams =
+    entry.mealId && entry.grams != null && entry.servings > 0
+      ? (entry.grams / entry.servings) * servings
+      : entry.grams;
+  await prisma.planEntry.update({ where: { id }, data: { servings, grams } });
   revalidatePath("/calendar");
   revalidatePath("/track");
   return { ok: true };

@@ -5,9 +5,11 @@ import { Package, ScanBarcode, Zap } from "lucide-react";
 import { QuickAddDialog } from "@/components/quick-add-dialog";
 import {
   AddMealControl,
+  type MealPickerExtras,
   type PickerMeal,
   type PickerTag,
 } from "@/components/day-planner";
+import type { Usage } from "@/lib/usage";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
 import {
   AddProductDialog,
@@ -32,6 +34,9 @@ export function AddFoodControl({
   meals,
   tags,
   products,
+  productUsage,
+  mealUsage,
+  slotCount,
 }: {
   date: string;
   slot: string;
@@ -39,6 +44,9 @@ export function AddFoodControl({
   meals: PickerMeal[];
   tags: PickerTag[];
   products: PickerProduct[];
+  productUsage?: Usage;
+  mealUsage?: MealPickerExtras["usage"];
+  slotCount?: number;
 }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
@@ -66,6 +74,8 @@ export function AddFoodControl({
         slotLabel={slotLabel}
         meals={meals}
         tags={tags}
+        usage={mealUsage}
+        slotCount={slotCount}
       />
       <button type="button" onClick={() => setQuickOpen(true)} className={BUTTON}>
         <Zap className="size-4" /> Quick add
@@ -110,6 +120,7 @@ export function AddFoodControl({
           title={`Add to ${slotLabel}`}
           confirmLabel={`Log to ${slotLabel}`}
           products={products}
+          usage={productUsage}
           onLog={async (productId, grams) => {
             const res = await logExistingProductAction({
               date,

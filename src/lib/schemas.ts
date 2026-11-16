@@ -64,6 +64,11 @@ export const mealSchema = z.object({
   serves: z
     .preprocess(normalizeDecimal, z.coerce.number().positive().max(100))
     .default(1),
+  // Weight of the whole cooked batch in grams, when weighed.
+  cookedGrams: optionalNumber.refine(
+    (v) => v == null || (v > 0 && v <= 100000),
+    "Cooked weight must be between 0 and 100 kg",
+  ),
   macrosManual: z.boolean().default(false),
   kcal: optionalNumber,
   protein: optionalNumber,
@@ -90,6 +95,11 @@ export const planEntrySchema = z.object({
   servings: z
     .preprocess(normalizeDecimal, z.coerce.number().positive().max(100))
     .default(1),
+  // For a meal with a weighed batch: grams eaten. Overrides `servings`.
+  grams: optionalNumber.refine(
+    (v) => v == null || (v > 0 && v <= 100000),
+    "Invalid weight",
+  ),
 });
 
 // A scanned product, macros stored per 100 g/ml. Backs the "edit macros" form.

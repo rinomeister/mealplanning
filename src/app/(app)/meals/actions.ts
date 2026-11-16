@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { mealSchema, tagSchema, type MealInputRaw } from "@/lib/schemas";
-import { refreshUpcomingEntries } from "@/lib/entries";
+import {
+  refreshUpcomingEntries,
+  rescaleUpcomingBatchEntries,
+} from "@/lib/entries";
 
 export type SaveResult = { ok: true; id: string } | { ok: false; error: string };
 
@@ -36,6 +39,7 @@ export async function createMealAction(
         prepSteps: data.prepSteps,
         servingLabel: data.servingLabel,
         serves: data.serves,
+        cookedGrams: data.cookedGrams,
         macrosManual: data.macrosManual,
         kcal: data.kcal,
         protein: data.protein,
@@ -77,7 +81,7 @@ export async function updateMealAction(
   try {
     const existing = await prisma.meal.findFirst({
       where: { id, userId },
-      select: { id: true },
+      select: { id: true, cookedGrams: true, serves: true },
     });
     if (!existing) return { ok: false, error: "Meal not found." };
 
@@ -94,6 +98,7 @@ export async function updateMealAction(
           prepSteps: data.prepSteps,
           servingLabel: data.servingLabel,
           serves: data.serves,
+          cookedGrams: data.cookedGrams,
           macrosManual: data.macrosManual,
           kcal: data.kcal,
           protein: data.protein,
@@ -123,6 +128,9 @@ export async function updateMealAction(
     ]);
     // Today and future days pick up the new macros; past days keep theirs.
     await refreshUpcomingEntries({ mealId: id }, data);
+    if (existing.cookedGrams !== data.cookedGrams || existing.serves !== data.serves) {
+      await rescaleUpcomingBatchEntries(id, data);
+    }
   } catch (e) {
     return { ok: false, error: messageFrom(e) };
   }
@@ -132,6 +140,46 @@ export async function updateMealAction(
   revalidatePath("/calendar", "layout");
   revalidatePath("/");
   redirect(`/meals/${id}`);
+}
+
+/**
+ * Record how much this batch weighs once cooked (or clear it), straight from
+ * the meal page — the number changes every time you cook it.
+ */
+export async function setCookedWeightAction(
+  id: string,
+  grams: number | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  if (grams != null && (!Number.isFinite(grams) || grams <= 0 || grams > 100000)) {
+    return { ok: false, error: "Enter the weight in grams." };
+  }
+  const meal = await prisma.meal.findFirst({
+    where: { id, userId },
+    select: { serves: true },
+  });
+  if (!meal) return { ok: false, error: "Meal not found." };
+
+  await prisma.meal.update({ where: { id }, data: { cookedGrams: grams } });
+  await rescaleUpcomingBatchEntries(id, { cookedGrams: grams, serves: meal.serves });
+
+  revalidatePath(`/meals/${id}`);
+  revalidatePath("/track");
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/** Star or unstar a meal; favorites sit at the top of the meal picker. */
+export async function setMealFavoriteAction(
+  id: string,
+  favorite: boolean,
+): Promise<void> {
+  const userId = await requireUserId();
+  await prisma.meal.updateMany({ where: { id, userId }, data: { favorite } });
+  revalidatePath("/track");
+  revalidatePath("/meals");
+  revalidatePath(`/meals/${id}`);
 }
 
 export async function deleteMealAction(

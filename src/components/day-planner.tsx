@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, Loader2, Plus, Search, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BookmarkPlus,
+  Check,
+  ChevronLeft,
+  History,
+  Loader2,
+  Plus,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn, parseDecimal } from "@/lib/utils";
@@ -14,6 +25,10 @@ import {
   setServingsAction,
 } from "@/app/(app)/calendar/actions";
 import { setGramsAction } from "@/app/(app)/track/actions";
+import { setMealFavoriteAction } from "@/app/(app)/meals/actions";
+import { SaveSlotMealForm } from "@/components/save-slot-meal";
+import { groupByUsage, type Usage } from "@/lib/usage";
+import type { SlotKey } from "@/lib/schemas";
 
 import type { DayEntry } from "@/lib/day-entry";
 
@@ -23,7 +38,14 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
   const [isPending, startTransition] = useTransition();
   const isProduct = entry.kind === "product";
   const isQuick = entry.kind === "quick";
-  const current = isProduct ? entry.grams ?? 0 : entry.servings;
+  // A meal from a weighed batch is shown and edited in grams, like a product.
+  const byWeight = entry.kind === "meal" && entry.gramsPerServing != null;
+  const inGrams = isProduct || byWeight;
+  const current = isProduct
+    ? entry.grams ?? 0
+    : byWeight
+      ? Math.round(entry.grams ?? entry.servings * entry.gramsPerServing!)
+      : entry.servings;
   const [qty, setQty] = useState(String(current));
   const skipped = entry.status === "SKIPPED";
 
@@ -41,14 +63,14 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
     }
     if (n === current) return;
     run(() =>
-      isProduct ? setGramsAction(entry.id, n) : setServingsAction(entry.id, n),
+      inGrams ? setGramsAction(entry.id, n) : setServingsAction(entry.id, n),
     );
   }
 
   const scaledKcal =
     entry.kcalBasis != null
       ? fmtMacro(
-          entry.kcalBasis * (isProduct ? current / 100 : current),
+          entry.kcalBasis * (isProduct ? current / 100 : entry.servings),
           "kcal",
         )
       : null;
@@ -109,7 +131,7 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
           {isQuick && (
             <span className="text-sm text-muted-foreground">Quick add</span>
           )}
-          {!isProduct && !isQuick && (
+          {!inGrams && !isQuick && (
             <span className="text-sm text-muted-foreground">×</span>
           )}
           {!isQuick && (
@@ -122,10 +144,10 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
             }}
             inputMode="decimal"
             className="h-9 w-16 px-1 text-center text-sm md:h-9"
-            aria-label={isProduct ? "Grams" : "Servings"}
+            aria-label={inGrams ? "Grams" : "Servings"}
           />
           )}
-          {isProduct && <span className="text-sm text-muted-foreground">g</span>}
+          {inGrams && <span className="text-sm text-muted-foreground">g</span>}
           {scaledKcal && (
             <span className="ml-auto text-sm font-medium tabular-nums text-muted-foreground">
               {scaledKcal} kcal
@@ -156,6 +178,16 @@ export type PickerMeal = {
   name: string;
   kcal: number | null;
   tagIds: string[];
+  favorite?: boolean;
+  /** Set when the batch was weighed, so the meal is logged in grams. */
+  gramsPerServing?: number | null;
+};
+
+/** Extra context for the meal picker on Track. */
+export type MealPickerExtras = {
+  usage?: Pick<Usage, "recentIds" | "last">;
+  /** Items counted in this slot — offers "Save as meal" when above zero. */
+  slotCount?: number;
 };
 
 export function AddMealControl({
@@ -164,13 +196,15 @@ export function AddMealControl({
   slotLabel,
   meals,
   tags,
+  usage,
+  slotCount,
 }: {
   date: string;
   slot: string;
   slotLabel: string;
   meals: PickerMeal[];
   tags: PickerTag[];
-}) {
+} & MealPickerExtras) {
   const [open, setOpen] = useState(false);
 
   if (meals.length === 0) {
@@ -200,11 +234,20 @@ export function AddMealControl({
           slotLabel={slotLabel}
           meals={meals}
           tags={tags}
+          usage={usage}
+          slotCount={slotCount}
           onClose={() => setOpen(false)}
         />
       )}
     </>
   );
+}
+
+/** "×1.5" or "350 g" — how a meal will be added, when it isn't one serving. */
+function amountLabel(amount: { servings: number; grams: number | null }): string | null {
+  if (amount.grams != null) return `${fmtMacro(amount.grams, "kcal")} g`;
+  if (amount.servings !== 1) return `×${fmtMacro(amount.servings)}`;
+  return null;
 }
 
 export function MealPickerDialog({
@@ -213,6 +256,8 @@ export function MealPickerDialog({
   slotLabel,
   meals,
   tags,
+  usage,
+  slotCount = 0,
   onClose,
 }: {
   date: string;
@@ -221,11 +266,15 @@ export function MealPickerDialog({
   meals: PickerMeal[];
   tags: PickerTag[];
   onClose: () => void;
-}) {
+} & MealPickerExtras) {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [addedCount, setAddedCount] = useState<Record<string, number>>({});
+  const [favorites, setFavorites] = useState<string[]>(() =>
+    meals.filter((m) => m.favorite).map((m) => m.id),
+  );
+  const [view, setView] = useState<"pick" | "save">("pick");
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -237,11 +286,46 @@ export function MealPickerDialog({
   }, [onClose]);
 
   const q = query.trim().toLowerCase();
+  const filtering = q !== "" || activeTags.size > 0;
   const filtered = meals.filter((m) => {
     if (q && !m.name.toLowerCase().includes(q)) return false;
     for (const t of activeTags) if (!m.tagIds.includes(t)) return false;
     return true;
   });
+
+  const sections = (() => {
+    if (filtering) {
+      const fav = new Set(favorites);
+      const sorted = [...filtered].sort(
+        (a, b) => Number(fav.has(b.id)) - Number(fav.has(a.id)),
+      );
+      return [{ key: "hits", title: null as string | null, items: sorted }];
+    }
+    const g = groupByUsage(meals, {
+      recentIds: usage?.recentIds ?? [],
+      favoriteIds: favorites,
+    });
+    return [
+      { key: "fav", title: "Favorites", items: g.favorites },
+      { key: "recent", title: "Recent", items: g.recent },
+      {
+        key: "all",
+        title: g.favorites.length + g.recent.length > 0 ? "All meals" : null,
+        items: g.rest,
+      },
+    ].filter((sec) => sec.items.length > 0);
+  })();
+
+  /** What a tap adds: last time's amount, or one serving (by weight if weighed). */
+  function amountFor(m: PickerMeal): { servings: number; grams: number | null } {
+    const last = usage?.last[m.id];
+    const gps = m.gramsPerServing ?? null;
+    if (gps != null) {
+      const grams = last?.grams ?? (last ? last.servings * gps : gps);
+      return { servings: grams / gps, grams: Math.round(grams) };
+    }
+    return { servings: last?.servings ?? 1, grams: null };
+  }
 
   function toggleTag(id: string) {
     setActiveTags((prev) => {
@@ -252,13 +336,28 @@ export function MealPickerDialog({
     });
   }
 
-  function pick(mealId: string) {
-    setPendingId(mealId);
+  function toggleFavorite(id: string) {
+    const on = !favorites.includes(id);
+    setFavorites((prev) => (on ? [...prev, id] : prev.filter((x) => x !== id)));
     startTransition(async () => {
-      const res = await addPlanEntryAction({ date, slot, mealId, servings: "1" });
+      await setMealFavoriteAction(id, on);
+    });
+  }
+
+  function pick(m: PickerMeal) {
+    const amount = amountFor(m);
+    setPendingId(m.id);
+    startTransition(async () => {
+      const res = await addPlanEntryAction({
+        date,
+        slot,
+        mealId: m.id,
+        servings: amount.servings,
+        grams: amount.grams,
+      });
       setPendingId(null);
       if (res.ok) {
-        setAddedCount((prev) => ({ ...prev, [mealId]: (prev[mealId] ?? 0) + 1 }));
+        setAddedCount((prev) => ({ ...prev, [m.id]: (prev[m.id] ?? 0) + 1 }));
       }
     });
   }
@@ -276,11 +375,25 @@ export function MealPickerDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2 border-b border-border p-4">
-          <div>
-            <p className="text-sm font-semibold">Add to {slotLabel}</p>
-            <p className="text-xs text-muted-foreground">
-              {filtered.length} meal{filtered.length === 1 ? "" : "s"}
+          {view === "save" && (
+            <button
+              type="button"
+              onClick={() => setView("pick")}
+              className="-ml-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+              aria-label="Back"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">
+              {view === "save" ? `Save ${slotLabel} as a meal` : `Add to ${slotLabel}`}
             </p>
+            {view === "pick" && (
+              <p className="text-xs text-muted-foreground">
+                {filtered.length} meal{filtered.length === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -292,96 +405,146 @@ export function MealPickerDialog({
           </button>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-border p-4">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search meals…"
-              className="pl-9"
+        {view === "save" ? (
+          <div className="p-4">
+            <SaveSlotMealForm
+              date={date}
+              slot={slot as SlotKey}
+              slotLabel={slotLabel}
+              onDone={onClose}
             />
           </div>
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.map((t) => {
-                const on = activeTags.has(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggleTag(t.id)}
-                    className={cn(
-                      "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
-                      on
-                        ? "border-transparent text-white"
-                        : "border-border text-muted-foreground hover:bg-muted",
-                    )}
-                    style={on ? { backgroundColor: t.color ?? "#16a34a" } : undefined}
-                  >
-                    {t.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2">
-          {filtered.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-              No meals match.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {filtered.map((m) => {
-                const added = addedCount[m.id] ?? 0;
-                const loading = pendingId === m.id;
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => pick(m.id)}
-                      disabled={isPending}
-                      className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left hover:border-border hover:bg-muted disabled:opacity-60"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{m.name}</p>
-                        {m.kcal != null ? (
-                          <p className="text-xs text-muted-foreground">
-                            {Math.round(m.kcal)} kcal
-                          </p>
-                        ) : (
-                          <p className="flex items-center gap-1 text-xs text-amber-600">
-                            <AlertTriangle className="size-3" /> No macros
-                          </p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-3 border-b border-border p-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search meals…"
+                  className="pl-9"
+                />
+              </div>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((t) => {
+                    const on = activeTags.has(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleTag(t.id)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                          on
+                            ? "border-transparent text-white"
+                            : "border-border text-muted-foreground hover:bg-muted",
                         )}
-                      </div>
-                      {added > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                          <Check className="size-3.5" />
-                          {added > 1 ? `×${added}` : "Added"}
-                        </span>
-                      )}
-                      {loading ? (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <Plus className="size-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+                        style={on ? { backgroundColor: t.color ?? "#16a34a" } : undefined}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-        <div className="border-t border-border p-3">
-          <Button type="button" variant="outline" className="w-full" onClick={onClose}>
-            Done
-          </Button>
-        </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {filtered.length === 0 ? (
+                <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  No meals match.
+                </p>
+              ) : (
+                sections.map((sec) => (
+                  <div key={sec.key} className="mb-1">
+                    {sec.title && (
+                      <p className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-xs font-semibold text-muted-foreground">
+                        {sec.key === "fav" && <Star className="size-3.5" />}
+                        {sec.key === "recent" && <History className="size-3.5" />}
+                        {sec.title}
+                      </p>
+                    )}
+                    <ul className="flex flex-col gap-1">
+                      {sec.items.map((m) => {
+                        const added = addedCount[m.id] ?? 0;
+                        const loading = pendingId === m.id;
+                        const fav = favorites.includes(m.id);
+                        const amount = amountLabel(amountFor(m));
+                        return (
+                          <li key={m.id} className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => pick(m)}
+                              disabled={isPending}
+                              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-left hover:border-border hover:bg-muted disabled:opacity-60"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">{m.name}</p>
+                                {m.kcal != null ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {Math.round(m.kcal)} kcal / serving
+                                  </p>
+                                ) : (
+                                  <p className="flex items-center gap-1 text-xs text-amber-600">
+                                    <AlertTriangle className="size-3" /> No macros
+                                  </p>
+                                )}
+                              </div>
+                              {added > 0 && (
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                                  <Check className="size-3.5" />
+                                  {added > 1 ? `×${added}` : "Added"}
+                                </span>
+                              )}
+                              <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                                {loading ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Plus className="size-4" />
+                                )}
+                                {amount}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleFavorite(m.id)}
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+                              aria-label={fav ? `Unstar ${m.name}` : `Star ${m.name}`}
+                              aria-pressed={fav}
+                            >
+                              <Star
+                                className={cn("size-4", fav && "fill-amber-400 text-amber-400")}
+                              />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex gap-2 border-t border-border p-3">
+              {slotCount > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setView("save")}
+                >
+                  <BookmarkPlus /> Save {slotLabel} as meal
+                </Button>
+              )}
+              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+                Done
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

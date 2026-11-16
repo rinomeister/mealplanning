@@ -12,6 +12,7 @@ import { MacroSummary } from "@/components/macro-summary";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
 import { ProductPickerDialog } from "@/components/product-picker-dialog";
 import type { PickerProduct } from "@/components/add-product-dialog";
+import type { Usage } from "@/lib/usage";
 import { cn, parseDecimal } from "@/lib/utils";
 import {
   addMacros,
@@ -44,6 +45,7 @@ export type MealFormInitial = {
   prepSteps: string;
   servingLabel: string;
   serves: string;
+  cookedGrams: string;
   macrosManual: boolean;
   kcal: string;
   protein: string;
@@ -91,10 +93,12 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function MealForm({
   tags,
   products,
+  productUsage,
   initial,
 }: {
   tags: TagItem[];
   products: PickerProduct[];
+  productUsage?: Usage;
   initial?: MealFormInitial;
 }) {
   const router = useRouter();
@@ -104,6 +108,7 @@ export function MealForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [servingLabel, setServingLabel] = useState(initial?.servingLabel ?? "");
   const [serves, setServes] = useState(initial?.serves ?? "1");
+  const [cookedGrams, setCookedGrams] = useState(initial?.cookedGrams ?? "");
   const [prepSteps, setPrepSteps] = useState(initial?.prepSteps ?? "");
   const [kcal, setKcal] = useState(initial?.kcal ?? "");
   const [protein, setProtein] = useState(initial?.protein ?? "");
@@ -150,7 +155,9 @@ export function MealForm({
     const withMacros = hasAnyMacro(p.per100g);
     addScannedRow({
       name: p.name,
-      qty: withMacros ? String(p.servingGrams ?? 100) : "",
+      qty: withMacros
+        ? String(productUsage?.last[p.id]?.grams ?? p.servingGrams ?? 100)
+        : "",
       unit: withMacros ? "g" : "",
       note: "",
       barcode: p.barcode,
@@ -249,6 +256,7 @@ export function MealForm({
       servingLabel,
       prepSteps,
       serves,
+      cookedGrams,
       macrosManual: manualMode,
       ...macros,
       ingredients: cleanIngredients,
@@ -303,6 +311,28 @@ export function MealForm({
                 placeholder="1"
               />
             </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cookedGrams">Whole batch weighs (cooked, optional)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="cookedGrams"
+                value={cookedGrams}
+                onChange={(e) => setCookedGrams(e.target.value)}
+                inputMode="decimal"
+                placeholder="e.g. 1200"
+                className="w-32"
+              />
+              <span className="text-sm text-muted-foreground">g</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                const g = parseDecimal(cookedGrams);
+                return Number.isFinite(g) && g > 0
+                  ? `About ${Math.round(g / servesNum)} g per serving. You'll log it by the grams on your plate.`
+                  : "Weigh the pot once it's cooked to log this meal by the grams on your plate.";
+              })()}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -550,6 +580,7 @@ export function MealForm({
       {pickerOpen && (
         <ProductPickerDialog
           products={products}
+          usage={productUsage}
           onPick={addProductRow}
           onClose={() => setPickerOpen(false)}
         />

@@ -4,6 +4,7 @@ import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { MealForm, type MealFormInitial } from "@/components/meal-form";
 import { loadMealFormProducts } from "@/lib/meal-form-products";
+import { loadProductUsage } from "@/lib/load-usage";
 
 function numToStr(n: number | null): string {
   return n == null ? "" : n.toString();
@@ -17,7 +18,7 @@ export default async function EditMealPage({
   const userId = await requireUserId();
   const { id } = await params;
 
-  const [meal, tags, products] = await Promise.all([
+  const [meal, tags, products, productUsage] = await Promise.all([
     prisma.meal.findFirst({
       where: { id, userId },
       include: {
@@ -31,6 +32,7 @@ export default async function EditMealPage({
       select: { id: true, name: true, color: true },
     }),
     loadMealFormProducts(),
+    loadProductUsage(userId),
   ]);
 
   if (!meal) notFound();
@@ -41,6 +43,7 @@ export default async function EditMealPage({
     prepSteps: meal.prepSteps ?? "",
     servingLabel: meal.servingLabel ?? "",
     serves: numToStr(meal.serves) || "1",
+    cookedGrams: numToStr(meal.cookedGrams),
     macrosManual: meal.macrosManual,
     kcal: numToStr(meal.kcal),
     protein: numToStr(meal.protein),
@@ -77,7 +80,12 @@ export default async function EditMealPage({
   return (
     <>
       <PageHeader title="Edit meal" />
-      <MealForm tags={tags} products={products} initial={initial} />
+      <MealForm
+        tags={tags}
+        products={products}
+        productUsage={productUsage}
+        initial={initial}
+      />
     </>
   );
 }

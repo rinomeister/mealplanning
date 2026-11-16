@@ -133,3 +133,29 @@ export async function importOffProductAction(
   revalidatePath("/products");
   return { ok: true, product: toPickerProduct(row) };
 }
+
+/** Star or unstar a product for the signed-in user only. */
+export async function setProductFavoriteAction(
+  productId: string,
+  favorite: boolean,
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  if (!productId) return { ok: false, error: "Invalid product." };
+  if (favorite) {
+    const exists = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
+    if (!exists) return { ok: false, error: "That product no longer exists." };
+    await prisma.productFavorite.upsert({
+      where: { userId_productId: { userId, productId } },
+      update: {},
+      create: { userId, productId },
+    });
+  } else {
+    await prisma.productFavorite.deleteMany({ where: { userId, productId } });
+  }
+  revalidatePath("/track");
+  revalidatePath("/products");
+  return { ok: true };
+}

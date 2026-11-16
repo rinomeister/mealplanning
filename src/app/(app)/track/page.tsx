@@ -13,9 +13,16 @@ import { RemainingCard } from "@/components/remaining-card";
 import { SlotMacros } from "@/components/slot-macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate, todayKey } from "@/lib/dates";
-import { fmtMacro, hasAnyMacro, sumDayEntries } from "@/lib/macros";
+import {
+  fmtMacro,
+  gramsPerServing,
+  hasAnyMacro,
+  sumDayEntries,
+} from "@/lib/macros";
 import { toDayEntry } from "@/lib/day-entry";
 import { loadPickerProducts } from "@/lib/meal-form-products";
+import { loadMealUsage, loadProductUsage } from "@/lib/load-usage";
+import { SaveSlotMealButton } from "@/components/save-slot-meal";
 import { nextOpenSlot, remainingMacros, suggestMeals } from "@/lib/suggest";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,7 +36,8 @@ export default async function TrackPage({
   const { date: dateParam } = await searchParams;
   const date = dateParam && DATE_RE.test(dateParam) ? dateParam : todayKey();
 
-  const [user, entries, mealRecords, tags, products] = await Promise.all([
+  const [user, entries, mealRecords, tags, products, productUsage, mealUsage] =
+    await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -45,7 +53,7 @@ export default async function TrackPage({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
       include: {
-        meal: { select: { name: true } },
+        meal: { select: { name: true, cookedGrams: true, serves: true } },
         product: { select: { name: true } },
       },
     }),
@@ -61,6 +69,9 @@ export default async function TrackPage({
         carbs: true,
         sugar: true,
         fiber: true,
+        favorite: true,
+        cookedGrams: true,
+        serves: true,
         tags: { select: { tagId: true } },
       },
     }),
@@ -70,6 +81,8 @@ export default async function TrackPage({
       select: { id: true, name: true, color: true },
     }),
     loadPickerProducts(),
+    loadProductUsage(userId),
+    loadMealUsage(userId),
   ]);
 
   const meals = mealRecords.map((m) => ({
@@ -77,6 +90,8 @@ export default async function TrackPage({
     name: m.name,
     kcal: m.kcal,
     tagIds: m.tags.map((t) => t.tagId),
+    favorite: m.favorite,
+    gramsPerServing: gramsPerServing(m),
   }));
 
   const counted = entries.filter((e) => e.status !== "SKIPPED");
@@ -170,6 +185,10 @@ export default async function TrackPage({
           const slotEntries = bySlot.get(slot) ?? [];
           const slotCounted = slotEntries.filter((e) => e.status !== "SKIPPED");
           const slotTotals = sumDayEntries(slotCounted);
+          // Worth saving as a meal: several items, or anything that isn't
+          // already a single saved meal.
+          const saveable =
+            slotCounted.length >= 2 || slotCounted.some((e) => !e.mealId);
           return (
             <Card key={slot}>
               <CardContent className="flex flex-col gap-3">
@@ -204,6 +223,14 @@ export default async function TrackPage({
                     {slotEntries.map((e) => (
                       <PlanEntryRow key={e.id} entry={toDayEntry(e)} />
                     ))}
+                    {slotCounted.length >= 2 && (
+                      <SaveSlotMealButton
+                        date={date}
+                        slot={slot}
+                        slotLabel={SLOT_LABELS[slot]}
+                        count={slotCounted.length}
+                      />
+                    )}
                   </div>
                 )}
                 <AddFoodControl
@@ -213,6 +240,9 @@ export default async function TrackPage({
                   meals={meals}
                   tags={tags}
                   products={products}
+                  productUsage={productUsage}
+                  mealUsage={mealUsage}
+                  slotCount={saveable ? slotCounted.length : 0}
                 />
               </CardContent>
             </Card>

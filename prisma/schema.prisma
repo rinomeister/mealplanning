@@ -11,8 +11,8 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String  @id @default(cuid())
+  email         String  @unique
   passwordHash  String
   name          String?
   heightCm      Float?
@@ -22,13 +22,15 @@ model User {
   targetCarbs   Int?
   targetSugar   Int?
   targetFiber   Int?
-  units         Units    @default(METRIC)
+  units         Units   @default(METRIC)
 
-  meals          Meal[]
-  tags           Tag[]
-  planEntries    PlanEntry[]
-  bodyweights    BodyweightLog[]
-  shoppingChecks ShoppingCheck[]
+  meals            Meal[]
+  tags             Tag[]
+  planEntries      PlanEntry[]
+  bodyweights      BodyweightLog[]
+  shoppingChecks   ShoppingCheck[]
+  shoppingAisles   ShoppingAisle[]
+  favoriteProducts ProductFavorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -42,6 +44,10 @@ model Meal {
   prepSteps    String? // free text / step list (optional)
   servingLabel String? // describes the 1-serving baseline, e.g. "1 bowl"
   serves       Float   @default(1) // how many servings the whole recipe yields
+  // Weight of the whole cooked batch, when weighed. Lets a meal be logged by
+  // grams eaten: servings = grams × serves / cookedGrams.
+  cookedGrams  Float?
+  favorite     Boolean @default(false)
   // Per-serving macros. Either typed in by hand or computed from scanned
   // ingredients (sum ÷ serves); `macrosManual` records which, so edits restore
   // the right mode.
@@ -101,8 +107,8 @@ model Tag {
 model MealTag {
   mealId String
   tagId  String
-  meal   Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([mealId, tagId])
   @@index([tagId])
@@ -128,7 +134,9 @@ model PlanEntry {
   productId String?
   product   Product?    @relation(fields: [productId], references: [id], onDelete: Restrict)
   servings  Float       @default(1) // used for meal entries
-  grams     Float? // used for product entries
+  // Product entries: grams eaten (the scale). Meal entries: grams eaten from a
+  // weighed batch, for display only — servings stays the scale.
+  grams     Float?
   status    EntryStatus @default(PLANNED)
   position  Int         @default(0)
   label     String? // name of a quick-add entry
@@ -149,7 +157,7 @@ model PlanEntry {
 // 100 g/ml (canonical). Populated from Open Food Facts on first log and
 // overridable by users (source flips to "user" once hand-edited).
 model Product {
-  id String @id @default(cuid())
+  id           String  @id @default(cuid())
   // Null for hand-entered foods: butcher's meat, loose produce, anything whose
   // packaging is long gone. Postgres allows many NULLs under a unique index, so
   // barcoded products still can't collide.
@@ -168,6 +176,7 @@ model Product {
 
   planEntries PlanEntry[]
   portions    ProductPortion[]
+  favoritedBy ProductFavorite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -198,6 +207,18 @@ model MealShare {
   createdAt DateTime @default(now())
 }
 
+// A product starred by one user. Products are shared; favorites are not.
+model ProductFavorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, productId])
+  @@index([productId])
+}
+
 model BodyweightLog {
   id         String   @id @default(cuid())
   userId     String
@@ -211,18 +232,33 @@ model BodyweightLog {
   @@index([userId, recordedAt])
 }
 
-// Persisted check-off state for the dynamically-computed shopping list.
-// Keyed by normalized "name|unit" so it survives plan changes.
+// Persisted state for the dynamically-computed shopping list, keyed by
+// normalized "name|unit" so it survives plan changes. Either bought on this trip
+// (checked; cleared by "Clear checked") or already at home (atHome; kept until
+// unmarked, so staples like salt stay off the list).
 model ShoppingCheck {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   itemKey   String
   checked   Boolean  @default(true)
+  atHome    Boolean  @default(false)
   checkedAt DateTime @default(now())
 
   @@unique([userId, itemKey])
   @@index([userId])
+}
+
+// A user's choice of aisle for a shopping item (by lower-cased name),
+// overriding the keyword guess in src/lib/aisles.ts.
+model ShoppingAisle {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  aisle  String
+
+  @@unique([userId, name])
 }
 
 enum Slot {
