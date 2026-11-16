@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
-import { planEntrySchema } from "@/lib/schemas";
-import { keyToDbDate } from "@/lib/dates";
+import { copyWeekSchema, planEntrySchema, type CopyWeekInput } from "@/lib/schemas";
+import { addDaysKey, keyToDbDate } from "@/lib/dates";
+import { pickMacros } from "@/lib/macros";
+import { copyEntries, nextPosition } from "@/lib/entries";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -21,16 +24,17 @@ export async function addPlanEntryAction(input: {
 
   const meal = await prisma.meal.findFirst({
     where: { id: mealId, userId },
-    select: { id: true },
+    select: {
+      id: true,
+      kcal: true,
+      protein: true,
+      fat: true,
+      carbs: true,
+      sugar: true,
+      fiber: true,
+    },
   });
   if (!meal) return { ok: false, error: "Meal not found." };
-
-  // Place new entry at the end of the slot.
-  const last = await prisma.planEntry.findFirst({
-    where: { userId, date: keyToDbDate(date), slot },
-    orderBy: { position: "desc" },
-    select: { position: true },
-  });
 
   await prisma.planEntry.create({
     data: {
@@ -39,13 +43,15 @@ export async function addPlanEntryAction(input: {
       slot,
       mealId,
       servings,
-      position: (last?.position ?? -1) + 1,
+      position: await nextPosition(userId, date, slot),
+      ...pickMacros(meal),
     },
   });
 
   revalidatePath(`/calendar/${date}`);
   revalidatePath("/calendar");
   revalidatePath("/track");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -95,4 +101,40 @@ export async function setEntryStatusAction(
   revalidatePath("/calendar");
   revalidatePath("/track");
   return { ok: true };
+}
+
+/**
+ * Repeat a week: copy the 7 days starting `fromStart` onto the 7 days starting
+ * `toStart`, keeping each entry's weekday offset and slot. Skipped entries are
+ * left behind; copies arrive as planned, after anything already on those days.
+ */
+export async function copyWeekAction(
+  input: CopyWeekInput,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const parsed = copyWeekSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+  const { fromStart, toStart } = parsed.data;
+  if (fromStart === toStart) {
+    return { ok: false, error: "Pick two different weeks." };
+  }
+
+  const count = await copyEntries(
+    userId,
+    { dateFrom: fromStart, dateTo: addDaysKey(fromStart, 6) },
+    (sourceDate) =>
+      addDaysKey(
+        toStart,
+        differenceInCalendarDays(parseISO(sourceDate), parseISO(fromStart)),
+      ),
+  );
+  if (count === 0) {
+    return { ok: false, error: "Nothing planned or logged that week." };
+  }
+
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/track");
+  revalidatePath("/shopping");
+  revalidatePath("/");
+  return { ok: true, count };
 }

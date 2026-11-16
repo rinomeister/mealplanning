@@ -15,48 +15,137 @@ type EntryForShopping = {
   };
 };
 
+/**
+ * Units we know how to convert, by family. Each maps to a factor onto the
+ * family's base unit (g for mass, ml for volume). Anything not listed is kept
+ * exactly as typed and only merges with the identical unit.
+ */
+const UNIT_FACTORS: Record<string, { base: "g" | "ml"; factor: number }> = {
+  mg: { base: "g", factor: 0.001 },
+  g: { base: "g", factor: 1 },
+  kg: { base: "g", factor: 1000 },
+  oz: { base: "g", factor: 28.3495 },
+  lb: { base: "g", factor: 453.592 },
+  ml: { base: "ml", factor: 1 },
+  cl: { base: "ml", factor: 10 },
+  dl: { base: "ml", factor: 100 },
+  l: { base: "ml", factor: 1000 },
+  tsp: { base: "ml", factor: 5 },
+  tbsp: { base: "ml", factor: 15 },
+  cup: { base: "ml", factor: 240 },
+};
+
+/** Spelling variants → the canonical unit used above. */
+const UNIT_ALIASES: Record<string, string> = {
+  gr: "g", gram: "g", grams: "g", gramm: "g",
+  kgs: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
+  milligram: "mg", milligrams: "mg",
+  ounce: "oz", ounces: "oz",
+  lbs: "lb", pound: "lb", pounds: "lb",
+  millilitre: "ml", milliliter: "ml", millilitres: "ml", milliliters: "ml",
+  litre: "l", liter: "l", litres: "l", liters: "l", ltr: "l",
+  teaspoon: "tsp", teaspoons: "tsp", tsps: "tsp",
+  tablespoon: "tbsp", tablespoons: "tbsp", tbs: "tbsp", tbsps: "tbsp",
+  cups: "cup",
+  pc: "pcs", piece: "pcs", pieces: "pcs", pcs: "pcs", kom: "pcs",
+};
+
+/** Lower-case, trim, drop a trailing dot ("tbsp.") and resolve aliases. */
+export function canonicalUnit(unit: string | null): string | null {
+  const u = unit?.trim().toLowerCase().replace(/\.$/, "");
+  if (!u) return null;
+  return UNIT_ALIASES[u] ?? u;
+}
+
 export function normalizeKey(name: string, unit: string | null): string {
   return `${name.trim().toLowerCase()}|${(unit ?? "").trim().toLowerCase()}`;
 }
 
 /**
- * Aggregate ingredients across plan entries. Items with the same name+unit are
- * summed (qty × servings); unquantified entries are flagged so the UI can show
- * "+ some" rather than a wrong total.
+ * Aggregate ingredients across plan entries. Items with the same name and a
+ * compatible unit are summed (qty × servings) — so "500 g" and "0.5 kg" of
+ * flour become one "1 kg" line. Unquantified entries are flagged so the UI can
+ * show "+" rather than a wrong total.
  */
 export function aggregateIngredients(
   entries: EntryForShopping[],
 ): ShoppingItem[] {
-  const map = new Map<string, ShoppingItem>();
+  type Acc = {
+    key: string;
+    name: string;
+    /** Distinct canonical units seen, so a lone "3 tbsp" stays in tbsp. */
+    units: Set<string>;
+    /** Family base unit, when every quantified unit converts. */
+    base: "g" | "ml" | null;
+    /** Total in the base unit (convertible) or in the single raw unit. */
+    total: number | null;
+    hasUnquantified: boolean;
+    rawUnit: string | null;
+  };
+  const map = new Map<string, Acc>();
 
   for (const entry of entries) {
     for (const ing of entry.meal.ingredients) {
       const name = ing.name.trim();
       if (!name) continue;
-      const unit = ing.unit?.trim() || null;
-      const key = normalizeKey(name, unit);
+      const unit = canonicalUnit(ing.unit);
+      const conv = unit ? UNIT_FACTORS[unit] : undefined;
+      // Keyed by the family base (g/ml) when convertible, so mixed units meet.
+      // That also keeps old shopping-check keys ("flour|g") working.
+      const key = normalizeKey(name, conv ? conv.base : unit);
       const scaled = ing.qty != null ? ing.qty * entry.servings : null;
+      const inBase = scaled != null && conv ? scaled * conv.factor : scaled;
 
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, {
+      let acc = map.get(key);
+      if (!acc) {
+        acc = {
           key,
           name,
-          unit,
-          totalQty: scaled,
-          hasUnquantified: scaled == null,
-        });
-      } else if (scaled != null) {
-        existing.totalQty = (existing.totalQty ?? 0) + scaled;
+          units: new Set(),
+          base: conv?.base ?? null,
+          total: null,
+          hasUnquantified: false,
+          rawUnit: unit,
+        };
+        map.set(key, acc);
+      }
+      if (inBase == null) {
+        acc.hasUnquantified = true;
       } else {
-        existing.hasUnquantified = true;
+        acc.total = (acc.total ?? 0) + inBase;
+        if (unit) acc.units.add(unit);
       }
     }
   }
 
-  return [...map.values()].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-  );
+  return [...map.values()]
+    .map((acc): ShoppingItem => {
+      let unit = acc.rawUnit;
+      let totalQty = acc.total;
+      if (acc.base && totalQty != null) {
+        if (acc.units.size === 1) {
+          // One unit throughout: show it as written ("3 tbsp", not "45 ml").
+          unit = [...acc.units][0];
+          totalQty = totalQty / UNIT_FACTORS[unit].factor;
+        } else {
+          ({ qty: totalQty, unit } = bestMetric(totalQty, acc.base));
+        }
+      }
+      return {
+        key: acc.key,
+        name: acc.name,
+        unit,
+        totalQty,
+        hasUnquantified: acc.hasUnquantified,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+/** Express a base-unit total in the friendliest metric unit (1500 g → 1.5 kg). */
+function bestMetric(qty: number, base: "g" | "ml"): { qty: number; unit: string } {
+  if (qty >= 1000) return { qty: qty / 1000, unit: base === "g" ? "kg" : "l" };
+  return { qty, unit: base };
 }
 
 export function formatShoppingAmount(item: ShoppingItem): string {

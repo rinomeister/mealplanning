@@ -11,21 +11,15 @@ import {
   draftToInput,
   type ProductDraft,
 } from "@/components/product-fields";
-import { hasAnyMacro, type MealMacros } from "@/lib/macros";
+import { hasAnyMacro } from "@/lib/macros";
+import type { PickerProduct } from "@/lib/products";
 import {
   createProductAction,
   deleteProductAction,
   updateProductAction,
 } from "@/app/(app)/products/actions";
 
-export type ManagedProduct = {
-  id: string;
-  name: string;
-  brand: string | null;
-  barcode: string | null;
-  servingGrams: number | null;
-  per100g: MealMacros;
-};
+export type ManagedProduct = PickerProduct;
 
 /** Create (no `product`) or edit (with one) — the fields are identical. */
 function ProductDialog({
@@ -156,6 +150,12 @@ export function ProductCard({ product }: { product: ManagedProduct }) {
               {kcal != null ? `${Math.round(kcal)} kcal/100g` : "No macros"}
             </span>
           </div>
+
+          {product.portions.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {product.portions.map((p) => `1 ${p.label} = ${p.grams} g`).join(" · ")}
+            </p>
+          )}
 
           {!hasAnyMacro(product.per100g) && (
             <p className="text-xs text-amber-600">

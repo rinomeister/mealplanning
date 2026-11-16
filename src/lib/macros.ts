@@ -65,22 +65,32 @@ export function addMacros(a: Macros, b: Macros): Macros {
   };
 }
 
+/** Copy just the six macro columns off any row that has them. */
+export function pickMacros(m: MealMacros): MealMacros {
+  return {
+    kcal: m.kcal,
+    protein: m.protein,
+    fat: m.fat,
+    carbs: m.carbs,
+    sugar: m.sugar,
+    fiber: m.fiber,
+  };
+}
+
 /**
- * A day entry references either a meal (scaled by `servings`) or a scanned
- * product (per-100g macros scaled by `grams`). `entryMacros` resolves whichever
- * applies; entries with no macro data contribute zero.
+ * A day entry carries its own macro basis (copied in when it was logged):
+ * per 100 g for products, scaled by `grams`; per serving for meals and quick
+ * adds, scaled by `servings`. Entries with no macro data contribute zero.
  */
-export type EntryForMacros = {
+export type EntryForMacros = MealMacros & {
   servings: number;
   grams: number | null;
-  meal: MealMacros | null;
-  product: MealMacros | null;
+  productId: string | null;
 };
 
 export function entryMacros(e: EntryForMacros): Macros {
-  if (e.product) return scaleGrams(e.product, e.grams ?? 0);
-  if (e.meal) return scaleMacros(e.meal, e.servings);
-  return { ...ZERO_MACROS };
+  if (e.productId) return scaleGrams(e, e.grams ?? 0);
+  return scaleMacros(e, e.servings);
 }
 
 /** Sum a day's entries (meals and products) into a single total. */

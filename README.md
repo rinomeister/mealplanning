@@ -61,7 +61,22 @@ plan days, and build a shopping list.
 
 ## How a few things work
 - **Ingredients** are hybrid: `qty` + `unit` + `name`, all optional. The shopping list sums items
-  that share a name+unit and shows `+` when some occurrences had no quantity.
+  that share a name and a compatible unit — `500 g` + `0.75 kg` of flour becomes one `1.25 kg`
+  line (mass and volume convert; other units only merge with themselves) — and shows `+` when
+  some occurrences had no quantity.
+- **Entries keep their own macros.** Logging a meal, product or quick add copies its macros onto
+  the day entry. Editing a meal or product afterwards updates today and future entries only, so
+  past days never change.
+- **Quick add** logs bare macros (no meal or product) — e.g. restaurant food. Leave kcal blank
+  and it's estimated from protein/carbs/fat.
+- **Copying**: a slot (`⋮` menu on Track), a whole day ("Same as yesterday" / "Copy a day" on
+  Track) or a whole week ("Repeat a week" on Plan). Copies are appended as planned.
+- **Products** can carry named **portions** ("1 slice = 25 g") shown as one-tap buttons when
+  logging. Pickers can also **search Open Food Facts by name** (search.openfoodfacts.org) when
+  a food isn't in your products yet.
+- **Meal sharing**: Share on a meal gives an 8-character code and a `/share/<code>` link. The
+  recipient previews the meal and imports their own independent copy (tags matched by name).
+  "Stop sharing" kills the code; existing copies stay.
 - **Servings**: a meal describes one serving; each calendar entry has a `servings` multiplier that
   scales both macros (day totals) and shopping quantities.
 - **Day status**: entries default to `PLANNED`. Unchecking "ate this" marks an entry `SKIPPED`

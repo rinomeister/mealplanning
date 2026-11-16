@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Check, Pencil } from "lucide-react";
+import { ShareMealButton } from "@/components/share-meal-button";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
@@ -15,17 +16,21 @@ import { cn } from "@/lib/utils";
 
 export default async function MealDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ imported?: string }>;
 }) {
   const userId = await requireUserId();
   const { id } = await params;
+  const { imported } = await searchParams;
 
   const meal = await prisma.meal.findFirst({
     where: { id, userId },
     include: {
       ingredients: { orderBy: { position: "asc" } },
       tags: { include: { tag: true } },
+      share: { select: { code: true, imports: true } },
     },
   });
 
@@ -55,6 +60,11 @@ export default async function MealDetailPage({
       />
 
       <div className="flex flex-col gap-4">
+        {imported && (
+          <p className="flex items-center gap-2 rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary">
+            <Check className="size-4 shrink-0" /> Imported — this copy is yours to edit and plan.
+          </p>
+        )}
         {meal.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {meal.tags.map(({ tag }) => (
@@ -129,6 +139,12 @@ export default async function MealDetailPage({
         )}
 
         <div className="flex gap-2">
+          <ShareMealButton
+            mealId={meal.id}
+            mealName={meal.name}
+            initialCode={meal.share?.code ?? null}
+            imports={meal.share?.imports ?? 0}
+          />
           <DeleteMealButton id={meal.id} />
         </div>
       </div>

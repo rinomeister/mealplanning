@@ -4,12 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { PlanTabs } from "@/components/plan-tabs";
+import { WeekCopyCard } from "@/components/week-copy-card";
 import {
   WEEKDAY_LABELS,
   dbDateToKey,
   formatMonthTitle,
   getMonthGrid,
   keyToDbDate,
+  todayKey,
 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
@@ -114,6 +116,8 @@ export default async function CalendarPage({
           );
         })}
       </div>
+
+      <WeekCopyCard today={todayKey()} />
     </>
   );
 }

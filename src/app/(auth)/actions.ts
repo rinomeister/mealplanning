@@ -9,6 +9,24 @@ import { DEFAULT_TAGS } from "@/lib/default-tags";
 
 export type AuthState = { error?: string } | undefined;
 
+/**
+ * Where to go after signing in. Only ever a path on this site: the proxy hands
+ * us an absolute URL, so keep just its path + query and refuse anything that
+ * isn't a plain local path (no "//evil.example" tricks).
+ */
+function safeRedirect(raw: FormDataEntryValue | null): string {
+  if (typeof raw !== "string" || !raw) return "/";
+  try {
+    const url = new URL(raw, "http://local.invalid");
+    const path = url.pathname + url.search;
+    if (!path.startsWith("/") || path.startsWith("//")) return "/";
+    if (path.startsWith("/login") || path.startsWith("/register")) return "/";
+    return path;
+  } catch {
+    return "/";
+  }
+}
+
 export async function loginAction(
   _prev: AuthState,
   formData: FormData,
@@ -17,7 +35,7 @@ export async function loginAction(
     await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      redirectTo: "/",
+      redirectTo: safeRedirect(formData.get("callbackUrl")),
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -60,7 +78,11 @@ export async function registerAction(
   });
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/" });
+    await signIn("credentials", {
+      email,
+      password,
+      redirectTo: safeRedirect(formData.get("callbackUrl")),
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Account created — please log in." };

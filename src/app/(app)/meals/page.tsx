@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
@@ -41,12 +41,14 @@ export default async function MealsPage({
         title="Food"
         description="Your saved meals and recipes."
         action={
-          <Link
-            href="/meals/new"
-            className={cn(buttonVariants(), "hidden sm:inline-flex")}
-          >
-            <Plus /> New meal
-          </Link>
+          <div className="hidden gap-2 sm:flex">
+            <Link href="/share" className={buttonVariants({ variant: "outline" })}>
+              <Download /> Import
+            </Link>
+            <Link href="/meals/new" className={buttonVariants()}>
+              <Plus /> New meal
+            </Link>
+          </div>
         }
       />
       <FoodTabs active="meals" />
@@ -85,11 +87,14 @@ export default async function MealsPage({
         </div>
       )}
 
-      <Link href="/meals/new" className="mb-4 block sm:hidden">
-        <Button className="w-full">
+      <div className="mb-4 flex gap-2 sm:hidden">
+        <Link href="/meals/new" className={cn(buttonVariants(), "flex-1")}>
           <Plus /> New meal
-        </Button>
-      </Link>
+        </Link>
+        <Link href="/share" className={buttonVariants({ variant: "outline" })}>
+          <Download /> Import
+        </Link>
+      </div>
 
       {meals.length === 0 ? (
         <EmptyState

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Package, ScanBarcode } from "lucide-react";
+import { Package, ScanBarcode, Zap } from "lucide-react";
+import { QuickAddDialog } from "@/components/quick-add-dialog";
 import {
   AddMealControl,
   type PickerMeal,
@@ -21,8 +22,8 @@ const BUTTON =
   "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary active:bg-muted";
 
 /**
- * Per-slot control, three ways in: scan a barcode, pick/type a product (the
- * no-barcode path), or add a meal you've already built.
+ * Per-slot control, four ways in: scan a barcode, pick/type a product (the
+ * no-barcode path), add a meal you've already built, or quick-add bare macros.
  */
 export function AddFoodControl({
   date,
@@ -41,6 +42,7 @@ export function AddFoodControl({
 }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -65,6 +67,17 @@ export function AddFoodControl({
         meals={meals}
         tags={tags}
       />
+      <button type="button" onClick={() => setQuickOpen(true)} className={BUTTON}>
+        <Zap className="size-4" /> Quick add
+      </button>
+      {quickOpen && (
+        <QuickAddDialog
+          date={date}
+          slot={slot}
+          slotLabel={slotLabel}
+          onClose={() => setQuickOpen(false)}
+        />
+      )}
       {scanOpen && (
         <ScanProductDialog
           title={`Scan into ${slotLabel}`}

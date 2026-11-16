@@ -17,14 +17,6 @@ export default async function DashboardPage() {
   const [todayEntries, weights, dbUser] = await Promise.all([
     prisma.planEntry.findMany({
       where: { userId, date: keyToDbDate(today), status: { not: "SKIPPED" } },
-      include: {
-        meal: {
-          select: { kcal: true, protein: true, fat: true, carbs: true, sugar: true, fiber: true },
-        },
-        product: {
-          select: { kcal: true, protein: true, fat: true, carbs: true, sugar: true, fiber: true },
-        },
-      },
     }),
     prisma.bodyweightLog.findMany({
       where: { userId },
@@ -46,32 +38,7 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const totals = sumDayEntries(
-    todayEntries.map((e) => ({
-      servings: e.servings,
-      grams: e.grams,
-      meal: e.meal
-        ? {
-            kcal: e.meal.kcal,
-            protein: e.meal.protein,
-            fat: e.meal.fat,
-            carbs: e.meal.carbs,
-            sugar: e.meal.sugar,
-            fiber: e.meal.fiber,
-          }
-        : null,
-      product: e.product
-        ? {
-            kcal: e.product.kcal,
-            protein: e.product.protein,
-            fat: e.product.fat,
-            carbs: e.product.carbs,
-            sugar: e.product.sugar,
-            fiber: e.product.fiber,
-          }
-        : null,
-    })),
-  );
+  const totals = sumDayEntries(todayEntries);
 
   const units = dbUser.units as UnitSystem;
   const points: TrendPoint[] = weights.map((w) => ({

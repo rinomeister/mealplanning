@@ -6,6 +6,7 @@ import { FoodTabs } from "@/components/food-tabs";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PICKER_PRODUCT_SELECT, toPickerProduct } from "@/lib/products";
 import {
   NewProductButton,
   ProductCard,
@@ -33,23 +34,10 @@ export default async function ProductsPage({
         }
       : undefined,
     orderBy: { name: "asc" },
+    select: PICKER_PRODUCT_SELECT,
   });
 
-  const products: ManagedProduct[] = records.map((p) => ({
-    id: p.id,
-    name: p.name,
-    brand: p.brand,
-    barcode: p.barcode,
-    servingGrams: p.servingGrams,
-    per100g: {
-      kcal: p.kcal,
-      protein: p.protein,
-      fat: p.fat,
-      carbs: p.carbs,
-      sugar: p.sugar,
-      fiber: p.fiber,
-    },
-  }));
+  const products: ManagedProduct[] = records.map(toPickerProduct);
 
   return (
     <>

@@ -5,51 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { MacroSummary } from "@/components/macro-summary";
-import {
-  AddMealControl,
-  PlanEntryRow,
-  type DayEntry,
-} from "@/components/day-planner";
+import { AddMealControl, PlanEntryRow } from "@/components/day-planner";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate } from "@/lib/dates";
-import {
-  sumDayEntries,
-  type EntryForMacros,
-  type MealMacros,
-} from "@/lib/macros";
+import { sumDayEntries } from "@/lib/macros";
+import { toDayEntry } from "@/lib/day-entry";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-type MacroCols = {
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-  sugar: number | null;
-  fiber: number | null;
-};
-
-function toMealMacros(m: MacroCols): MealMacros {
-  return {
-    kcal: m.kcal,
-    protein: m.protein,
-    fat: m.fat,
-    carbs: m.carbs,
-    sugar: m.sugar,
-    fiber: m.fiber,
-  };
-}
-
-function hasMacros(m: MacroCols): boolean {
-  return (
-    m.kcal != null ||
-    m.protein != null ||
-    m.fat != null ||
-    m.carbs != null ||
-    m.sugar != null ||
-    m.fiber != null
-  );
-}
 
 export default async function DayPage({
   params,
@@ -65,30 +27,8 @@ export default async function DayPage({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
       include: {
-        meal: {
-          select: {
-            id: true,
-            name: true,
-            kcal: true,
-            protein: true,
-            fat: true,
-            carbs: true,
-            sugar: true,
-            fiber: true,
-          },
-        },
-        product: {
-          select: {
-            id: true,
-            name: true,
-            kcal: true,
-            protein: true,
-            fat: true,
-            carbs: true,
-            sugar: true,
-            fiber: true,
-          },
-        },
+        meal: { select: { name: true } },
+        product: { select: { name: true } },
       },
     }),
     prisma.meal.findMany({
@@ -116,14 +56,7 @@ export default async function DayPage({
   }));
 
   const counted = entries.filter((e) => e.status !== "SKIPPED");
-  const totals = sumDayEntries(
-    counted.map<EntryForMacros>((e) => ({
-      servings: e.servings,
-      grams: e.grams,
-      meal: e.meal ? toMealMacros(e.meal) : null,
-      product: e.product ? toMealMacros(e.product) : null,
-    })),
-  );
+  const totals = sumDayEntries(counted);
 
   const bySlot = new Map<SlotKey, typeof entries>();
   for (const slot of SLOTS) bySlot.set(slot, []);
@@ -175,21 +108,9 @@ export default async function DayPage({
                 <p className="text-sm font-semibold">{SLOT_LABELS[slot]}</p>
                 {slotEntries.length > 0 && (
                   <div className="flex flex-col gap-1.5">
-                    {slotEntries.map((e) => {
-                      const item = e.product ?? e.meal;
-                      const dayEntry: DayEntry = {
-                        id: e.id,
-                        kind: e.product ? "product" : "meal",
-                        name: item?.name ?? "(removed)",
-                        href: e.meal ? `/meals/${e.meal.id}` : null,
-                        servings: e.servings,
-                        grams: e.grams,
-                        status: e.status,
-                        kcalBasis: item?.kcal ?? null,
-                        hasMacros: item ? hasMacros(item) : false,
-                      };
-                      return <PlanEntryRow key={e.id} entry={dayEntry} />;
-                    })}
+                    {slotEntries.map((e) => (
+                      <PlanEntryRow key={e.id} entry={toDayEntry(e)} />
+                    ))}
                   </div>
                 )}
                 <AddMealControl

@@ -56,6 +56,7 @@ model Meal {
   ingredients Ingredient[]
   tags        MealTag[]
   planEntries PlanEntry[]
+  share       MealShare?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,9 +108,15 @@ model MealTag {
   @@index([tagId])
 }
 
-// A day+slot entry. References EITHER a prebuilt meal (scaled by `servings`) or a
-// scanned product (scaled by `grams`). Exactly one of mealId/productId is set —
-// enforced in the server actions, not at the DB level.
+// A day+slot entry. References a prebuilt meal (scaled by `servings`), a product
+// (scaled by `grams`), or neither — a "quick add" of typed-in macros with a
+// `label` (scaled by `servings`, normally 1). At most one of mealId/productId is
+// set — enforced in the server actions, not at the DB level.
+//
+// The entry carries its own copy of the macros (per serving for meals and quick
+// adds, per 100 g for products), so editing a meal or product later never
+// rewrites days that already happened. Edits still flow into today and future
+// days — see refreshUpcomingEntries in src/lib/entries.ts.
 model PlanEntry {
   id        String      @id @default(cuid())
   userId    String
@@ -124,6 +131,13 @@ model PlanEntry {
   grams     Float? // used for product entries
   status    EntryStatus @default(PLANNED)
   position  Int         @default(0)
+  label     String? // name of a quick-add entry
+  kcal      Float?
+  protein   Float?
+  fat       Float?
+  carbs     Float?
+  sugar     Float?
+  fiber     Float?
   createdAt DateTime    @default(now())
 
   @@index([userId, date])
@@ -153,9 +167,35 @@ model Product {
   source       String  @default("openfoodfacts") // "user" once hand-edited
 
   planEntries PlanEntry[]
+  portions    ProductPortion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Named portion sizes for a product ("1 slice" = 25 g), on top of servingGrams.
+// Shared, like the products themselves.
+model ProductPortion {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  label     String
+  grams     Float
+  position  Int     @default(0)
+
+  @@index([productId])
+}
+
+// A share code for a meal. Anyone signed in with the code can preview the meal
+// and import their own independent copy. One code per meal; deleting the row
+// (or the meal) stops sharing.
+model MealShare {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  mealId    String   @unique
+  meal      Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  imports   Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
 model BodyweightLog {

@@ -1,10 +1,12 @@
 "use client";
 
+import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseDecimal } from "@/lib/utils";
 import type { MealMacros } from "@/lib/macros";
 import type { ManualProductInput } from "@/lib/schemas";
+import type { Portion } from "@/lib/products";
 
 const MACRO_FIELDS: { key: keyof MealMacros; label: string }[] = [
   { key: "kcal", label: "kcal" },
@@ -24,6 +26,8 @@ export type ProductDraft = {
   brand: string;
   servingGrams: string;
   macros: Record<string, string>;
+  /** Named portions ("slice" = "25"). Half-filled rows are dropped on save. */
+  portions: { label: string; grams: string }[];
 };
 
 export const EMPTY_DRAFT: ProductDraft = {
@@ -31,6 +35,7 @@ export const EMPTY_DRAFT: ProductDraft = {
   brand: "",
   servingGrams: "",
   macros: {},
+  portions: [],
 };
 
 function num(v: string | undefined): number | null {
@@ -63,6 +68,11 @@ export function draftToInput(draft: ProductDraft): ManualProductInput {
     servingLabel: sg != null ? `${sg} g` : null,
     servingGrams: sg != null && sg > 0 ? sg : null,
     ...draftMacros(draft),
+    portions: draft.portions.flatMap((p) => {
+      const label = p.label.trim().replace(/^1s+/, "");
+      const grams = num(p.grams);
+      return label && grams != null && grams > 0 ? [{ label, grams }] : [];
+    }),
   };
 }
 
@@ -71,6 +81,7 @@ export function draftFrom(p: {
   brand: string | null;
   servingGrams: number | null;
   per100g: MealMacros;
+  portions?: Portion[];
 }): ProductDraft {
   const s = (v: number | null) => (v == null ? "" : String(v));
   return {
@@ -85,6 +96,7 @@ export function draftFrom(p: {
       sugar: s(p.per100g.sugar),
       fiber: s(p.per100g.fiber),
     },
+    portions: (p.portions ?? []).map((x) => ({ label: x.label, grams: String(x.grams) })),
   };
 }
 
@@ -155,6 +167,77 @@ export function ProductFields({
           </div>
         </div>
       </div>
+
+      <PortionEditor
+        portions={draft.portions}
+        onChange={(portions) => set({ portions })}
+      />
+    </div>
+  );
+}
+
+/**
+ * Extra named portions — "slice", "scoop", "cup" — each with its weight, so
+ * logging is a tap instead of a weighing.
+ */
+function PortionEditor({
+  portions,
+  onChange,
+}: {
+  portions: ProductDraft["portions"];
+  onChange: (next: ProductDraft["portions"]) => void;
+}) {
+  const update = (i: number, patch: Partial<ProductDraft["portions"][number]>) =>
+    onChange(portions.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <p className="text-xs font-medium text-muted-foreground">Portions (optional)</p>
+        <p className="text-xs text-muted-foreground">
+          E.g. 1 slice = 25 g, 1 scoop = 30 g — shown as one-tap buttons when logging.
+        </p>
+      </div>
+      {portions.map((p, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">1</span>
+          <Input
+            value={p.label}
+            onChange={(e) => update(i, { label: e.target.value })}
+            placeholder="slice"
+            aria-label="Portion name"
+            className="min-w-0 flex-1"
+            autoComplete="off"
+          />
+          <span className="text-sm text-muted-foreground">=</span>
+          <Input
+            value={p.grams}
+            onChange={(e) => update(i, { grams: e.target.value })}
+            inputMode="decimal"
+            placeholder="25"
+            aria-label="Grams"
+            className="w-20"
+          />
+          <span className="text-sm text-muted-foreground">g</span>
+          <button
+            type="button"
+            onClick={() => onChange(portions.filter((_, j) => j !== i))}
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-destructive"
+            aria-label="Remove portion"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      ))}
+      {portions.length < 20 && (
+        <button
+          type="button"
+          onClick={() => onChange([...portions, { label: "", grams: "" }])}
+          className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg border border-dashed border-border px-3 text-xs font-medium text-primary active:bg-muted"
+        >
+          <Plus className="size-3.5" /> Add portion
+        </button>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { mealSchema, tagSchema, type MealInputRaw } from "@/lib/schemas";
+import { refreshUpcomingEntries } from "@/lib/entries";
 
 export type SaveResult = { ok: true; id: string } | { ok: false; error: string };
 
@@ -120,11 +121,16 @@ export async function updateMealAction(
         },
       }),
     ]);
+    // Today and future days pick up the new macros; past days keep theirs.
+    await refreshUpcomingEntries({ mealId: id }, data);
   } catch (e) {
     return { ok: false, error: messageFrom(e) };
   }
   revalidatePath("/meals");
   revalidatePath(`/meals/${id}`);
+  revalidatePath("/track");
+  revalidatePath("/calendar", "layout");
+  revalidatePath("/");
   redirect(`/meals/${id}`);
 }
 

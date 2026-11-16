@@ -4,21 +4,25 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import {
+  copyDaySchema,
   copySlotSchema,
   createMealFromSlotSchema,
   logExistingProductSchema,
   logProductSchema,
   productMacrosSchema,
+  quickAddSchema,
   SLOT_LABELS,
+  type CopyDayInput,
   type CopySlotInput,
   type CreateMealFromSlotInput,
   type LogExistingProductInputRaw,
   type LogProductInputRaw,
   type ProductMacrosInputRaw,
-  type SlotKey,
+  type QuickAddInputRaw,
 } from "@/lib/schemas";
-import { sumDayEntries, type MealMacros } from "@/lib/macros";
-import { keyToDbDate } from "@/lib/dates";
+import { hasAnyMacro, pickMacros, sumDayEntries } from "@/lib/macros";
+import { formatHuman, keyToDbDate } from "@/lib/dates";
+import { copyEntries, nextPosition, refreshUpcomingEntries } from "@/lib/entries";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -28,15 +32,22 @@ function roundMacro(value: number | null, kind: "kcal" | "g"): number | null {
   return kind === "kcal" ? Math.round(value) : Math.round(value * 10) / 10;
 }
 
-/** Next free position in a day+slot, so new entries append rather than collide. */
-async function nextPosition(userId: string, date: string, slot: SlotKey) {
-  const last = await prisma.planEntry.findFirst({
-    where: { userId, date: keyToDbDate(date), slot },
-    orderBy: { position: "desc" },
-    select: { position: true },
-  });
-  return (last?.position ?? -1) + 1;
+function revalidateDay(date: string) {
+  revalidatePath("/track");
+  revalidatePath(`/calendar/${date}`);
+  revalidatePath("/calendar");
+  revalidatePath("/");
 }
+
+const MACRO_SELECT = {
+  id: true,
+  kcal: true,
+  protein: true,
+  fat: true,
+  carbs: true,
+  sugar: true,
+  fiber: true,
+} as const;
 
 /**
  * Save (or correct) a scanned product's macros in our shared database, keyed by
@@ -52,11 +63,13 @@ export async function upsertProductMacrosAction(
 
   const { barcode, ...rest } = parsed.data;
   const data = { ...rest, source: "user" };
-  await prisma.product.upsert({
+  const product = await prisma.product.upsert({
     where: { barcode },
     create: { barcode, ...data },
     update: data,
+    select: MACRO_SELECT,
   });
+  await refreshUpcomingEntries({ productId: product.id }, product);
 
   revalidatePath("/track");
   revalidatePath("/scan");
@@ -76,12 +89,13 @@ export async function logProductAction(
 
   const { date, slot, grams, barcode, ...productFields } = parsed.data;
 
-  // Cache OFF data on first sighting; never overwrite hand-edited macros.
+  // Cache OFF data on first sighting; never overwrite hand-edited macros. The
+  // entry copies whatever the row holds afterwards.
   const product = await prisma.product.upsert({
     where: { barcode },
     create: { barcode, ...productFields, source: "openfoodfacts" },
     update: {},
-    select: { id: true },
+    select: MACRO_SELECT,
   });
 
   await prisma.planEntry.create({
@@ -92,19 +106,17 @@ export async function logProductAction(
       productId: product.id,
       grams,
       position: await nextPosition(userId, date, slot),
+      ...pickMacros(product),
     },
   });
 
-  revalidatePath("/track");
-  revalidatePath(`/calendar/${date}`);
-  revalidatePath("/calendar");
+  revalidateDay(date);
   return { ok: true };
 }
 
 /**
  * Log a product we already hold, by id. Unlike `logProductAction` this carries
- * no macro payload — the row is the source of truth, so a product corrected on
- * the Products page stays corrected everywhere.
+ * no macro payload — the row is the source of truth.
  */
 export async function logExistingProductAction(
   input: Omit<LogExistingProductInputRaw, "slot"> & { slot: string },
@@ -115,11 +127,11 @@ export async function logExistingProductAction(
 
   const { date, slot, productId, grams } = parsed.data;
 
-  const exists = await prisma.product.findUnique({
+  const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true },
+    select: MACRO_SELECT,
   });
-  if (!exists) return { ok: false, error: "That product no longer exists." };
+  if (!product) return { ok: false, error: "That product no longer exists." };
 
   await prisma.planEntry.create({
     data: {
@@ -129,12 +141,55 @@ export async function logExistingProductAction(
       productId,
       grams,
       position: await nextPosition(userId, date, slot),
+      ...pickMacros(product),
     },
   });
 
-  revalidatePath("/track");
-  revalidatePath(`/calendar/${date}`);
-  revalidatePath("/calendar");
+  revalidateDay(date);
+  return { ok: true };
+}
+
+/**
+ * Log typed-in macros with no product or meal behind them. If kcal is left
+ * blank but macros are given, kcal is estimated at 4/4/9 kcal per gram of
+ * protein/carbs/fat.
+ */
+export async function quickAddAction(
+  input: Omit<QuickAddInputRaw, "slot"> & { slot: string },
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  const parsed = quickAddSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid entry." };
+
+  const { date, slot, label, ...macros } = parsed.data;
+  if (!hasAnyMacro(macros)) {
+    return { ok: false, error: "Enter at least the calories." };
+  }
+  for (const v of Object.values(macros)) {
+    if (v != null && (v < 0 || v > 20000)) {
+      return { ok: false, error: "Those numbers don't look right." };
+    }
+  }
+  const kcal =
+    macros.kcal ??
+    Math.round(
+      (macros.protein ?? 0) * 4 + (macros.carbs ?? 0) * 4 + (macros.fat ?? 0) * 9,
+    );
+
+  await prisma.planEntry.create({
+    data: {
+      userId,
+      date: keyToDbDate(date),
+      slot,
+      label,
+      servings: 1,
+      position: await nextPosition(userId, date, slot),
+      ...macros,
+      kcal,
+    },
+  });
+
+  revalidateDay(date);
   return { ok: true };
 }
 
@@ -154,24 +209,16 @@ export async function setGramsAction(
   if (count === 0) return { ok: false, error: "Entry not found." };
   revalidatePath("/track");
   revalidatePath("/calendar");
+  revalidatePath("/");
   return { ok: true };
 }
-
-const macrosOf = (m: MealMacros): MealMacros => ({
-  kcal: m.kcal,
-  protein: m.protein,
-  fat: m.fat,
-  carbs: m.carbs,
-  sugar: m.sugar,
-  fiber: m.fiber,
-});
 
 /**
  * Turn everything currently logged in a day+slot into a reusable meal. Products
  * become scanned-style ingredients (barcode + per-100 g macros) so the meal
  * stays editable; the meal's own macros are locked to the section's exact totals
- * — this stays correct even when the section also contains other meals, which
- * have no per-100 g representation to recompute from.
+ * — this stays correct even when the section also contains other meals or quick
+ * adds, which have no per-100 g representation to recompute from.
  */
 export async function createMealFromSlotAction(
   input: CreateMealFromSlotInput,
@@ -187,29 +234,8 @@ export async function createMealFromSlotAction(
     where: { userId, date: keyToDbDate(date), slot, status: { not: "SKIPPED" } },
     orderBy: { position: "asc" },
     include: {
-      meal: {
-        select: {
-          name: true,
-          kcal: true,
-          protein: true,
-          fat: true,
-          carbs: true,
-          sugar: true,
-          fiber: true,
-        },
-      },
-      product: {
-        select: {
-          name: true,
-          barcode: true,
-          kcal: true,
-          protein: true,
-          fat: true,
-          carbs: true,
-          sugar: true,
-          fiber: true,
-        },
-      },
+      meal: { select: { name: true } },
+      product: { select: { name: true, barcode: true } },
     },
   });
 
@@ -220,14 +246,7 @@ export async function createMealFromSlotAction(
     };
   }
 
-  const totals = sumDayEntries(
-    entries.map((e) => ({
-      servings: e.servings,
-      grams: e.grams,
-      meal: e.meal ? macrosOf(e.meal) : null,
-      product: e.product ? macrosOf(e.product) : null,
-    })),
-  );
+  const totals = sumDayEntries(entries);
 
   const ingredients = entries.map((e, i) => {
     if (e.product) {
@@ -237,16 +256,11 @@ export async function createMealFromSlotAction(
         unit: "g",
         position: i,
         barcode: e.product.barcode,
-        kcal: e.product.kcal,
-        protein: e.product.protein,
-        fat: e.product.fat,
-        carbs: e.product.carbs,
-        sugar: e.product.sugar,
-        fiber: e.product.fiber,
+        ...pickMacros(e),
       };
     }
     return {
-      name: e.meal?.name ?? "(removed)",
+      name: e.meal?.name ?? e.label ?? "Quick add",
       qty: e.servings,
       unit: "serving",
       position: i,
@@ -277,7 +291,7 @@ export async function createMealFromSlotAction(
 
 /**
  * Copy every (non-skipped) entry from one day's slot into another day's same
- * slot — appended after whatever is already there, brought in as counted.
+ * slot — appended after whatever is already there.
  */
 export async function copySlotFromDateAction(
   input: CopySlotInput,
@@ -287,40 +301,43 @@ export async function copySlotFromDateAction(
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const { fromDate, toDate, slot } = parsed.data;
 
-  const source = await prisma.planEntry.findMany({
-    where: {
-      userId,
-      date: keyToDbDate(fromDate),
-      slot,
-      status: { not: "SKIPPED" },
-    },
-    orderBy: { position: "asc" },
-    select: { mealId: true, productId: true, servings: true, grams: true },
-  });
-
-  if (source.length === 0) {
+  const count = await copyEntries(
+    userId,
+    { dateFrom: fromDate, dateTo: fromDate, slot },
+    () => toDate,
+  );
+  if (count === 0) {
     return {
       ok: false,
       error: `Nothing logged in ${SLOT_LABELS[slot]} on that day.`,
     };
   }
 
-  const start = await nextPosition(userId, toDate, slot);
-  await prisma.planEntry.createMany({
-    data: source.map((s, i) => ({
-      userId,
-      date: keyToDbDate(toDate),
-      slot,
-      mealId: s.mealId,
-      productId: s.productId,
-      servings: s.servings,
-      grams: s.grams,
-      position: start + i,
-    })),
-  });
+  revalidateDay(toDate);
+  return { ok: true, count };
+}
 
-  revalidatePath("/track");
-  revalidatePath(`/calendar/${toDate}`);
-  revalidatePath("/calendar");
-  return { ok: true, count: source.length };
+/** Copy a whole day (every slot, non-skipped entries) into another day. */
+export async function copyDayAction(
+  input: CopyDayInput,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const parsed = copyDaySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+  const { fromDate, toDate } = parsed.data;
+  if (fromDate === toDate) {
+    return { ok: false, error: "Pick a different day to copy from." };
+  }
+
+  const count = await copyEntries(
+    userId,
+    { dateFrom: fromDate, dateTo: fromDate },
+    () => toDate,
+  );
+  if (count === 0) {
+    return { ok: false, error: `Nothing logged on ${formatHuman(fromDate)}.` };
+  }
+
+  revalidateDay(toDate);
+  return { ok: true, count };
 }

@@ -13,18 +13,13 @@ import {
   type ProductDraft,
 } from "@/components/product-fields";
 import { parseDecimal } from "@/lib/utils";
-import { hasAnyMacro, scaleGrams, type MealMacros } from "@/lib/macros";
+import { hasAnyMacro, scaleGrams } from "@/lib/macros";
 import { createProductAction } from "@/app/(app)/products/actions";
+import { OffSearchPanel } from "@/components/off-search-panel";
+import { PortionChips } from "@/components/portion-chips";
+import type { PickerProduct } from "@/lib/products";
 
-/** A product from our own database, as shown in the picker. */
-export type PickerProduct = {
-  id: string;
-  name: string;
-  brand: string | null;
-  barcode: string | null;
-  servingGrams: number | null;
-  per100g: MealMacros;
-};
+export type { PickerProduct };
 
 type Phase = "search" | "detail" | "create";
 
@@ -111,6 +106,7 @@ export function AddProductDialog({
         brand: input.brand ?? null,
         barcode: null,
         servingGrams: input.servingGrams ?? null,
+        portions: input.portions,
         per100g: {
           kcal: input.kcal ?? null,
           protein: input.protein ?? null,
@@ -202,8 +198,8 @@ export function AddProductDialog({
               {results.length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                   {products.length === 0
-                    ? "No products yet. Add your first one below."
-                    : `Nothing matches “${query.trim()}”.`}
+                    ? "No products yet. Search Open Food Facts or add one below."
+                    : `None of your products match “${query.trim()}”.`}
                 </p>
               ) : (
                 <div className="flex flex-col">
@@ -237,6 +233,7 @@ export function AddProductDialog({
                   ))}
                 </div>
               )}
+              <OffSearchPanel query={query} onPick={choose} />
             </div>
 
             <div className="border-t border-border p-4">
@@ -304,17 +301,13 @@ export function AddProductDialog({
                   className="w-28"
                 />
                 <span className="text-sm text-muted-foreground">g</span>
-                {selected.servingGrams != null && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setGrams(String(selected.servingGrams))}
-                  >
-                    1 serving ({selected.servingGrams} g)
-                  </Button>
-                )}
               </div>
+              <PortionChips
+                servingGrams={selected.servingGrams}
+                portions={selected.portions}
+                grams={grams}
+                onGrams={setGrams}
+              />
               {preview && hasAnyMacro(selected.per100g) && (
                 <div>
                   <p className="mb-1.5 text-xs text-muted-foreground">

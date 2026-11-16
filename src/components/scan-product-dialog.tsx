@@ -11,6 +11,8 @@ import { parseDecimal } from "@/lib/utils";
 import { hasAnyMacro, scaleGrams, type MealMacros } from "@/lib/macros";
 import { upsertProductMacrosAction } from "@/app/(app)/track/actions";
 import type { BarcodeLookupResult } from "@/lib/barcode";
+import { PortionChips } from "@/components/portion-chips";
+import type { Portion } from "@/lib/products";
 
 type FoundResult = Extract<BarcodeLookupResult, { found: true }>;
 
@@ -67,6 +69,7 @@ export function ScanProductDialog({
   const [brand, setBrand] = useState<string | null>(null);
   const [servingLabel, setServingLabel] = useState<string | null>(null);
   const [servingGrams, setServingGrams] = useState<number | null>(null);
+  const [portions, setPortions] = useState<Portion[]>([]);
   const [per100g, setPer100g] = useState<MealMacros>({
     kcal: null,
     protein: null,
@@ -98,6 +101,7 @@ export function ScanProductDialog({
     setBrand(r.brand);
     setServingLabel(r.servingLabel);
     setServingGrams(r.servingGrams);
+    setPortions(r.portions ?? []);
     setPer100g(r.per100g);
     setGrams(String(r.servingGrams ?? 100));
     const missing = !hasAnyMacro(r.per100g);
@@ -131,6 +135,7 @@ export function ScanProductDialog({
           setBrand(null);
           setServingLabel(null);
           setServingGrams(null);
+          setPortions([]);
           setPer100g({ kcal: null, protein: null, fat: null, carbs: null, sugar: null, fiber: null });
           setEditName("");
           setEditServingGrams("");
@@ -405,17 +410,13 @@ export function ScanProductDialog({
                     className="w-28"
                   />
                   <span className="text-sm text-muted-foreground">g</span>
-                  {servingGrams != null && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setGrams(String(servingGrams))}
-                    >
-                      1 serving ({servingGrams} g)
-                    </Button>
-                  )}
                 </div>
+                <PortionChips
+                  servingGrams={servingGrams}
+                  portions={portions}
+                  grams={grams}
+                  onGrams={setGrams}
+                />
                 {preview && !missingMacros && (
                   <div>
                     <p className="mb-1.5 text-xs text-muted-foreground">

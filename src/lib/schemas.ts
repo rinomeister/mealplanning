@@ -122,7 +122,23 @@ export type LogProductInputRaw = z.input<typeof logProductSchema>;
 
 // A hand-entered product: same shape as a scanned one minus the barcode, for
 // food that never had a scannable package (butcher's meat, loose produce).
-export const manualProductSchema = productMacrosSchema.omit({ barcode: true });
+export const manualProductSchema = productMacrosSchema
+  .omit({ barcode: true })
+  .extend({
+    // Named portions ("1 slice" = 25 g). Replaces the product's whole list.
+    portions: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1).max(40),
+          grams: z.preprocess(
+            (v) => (typeof v === "string" ? v.replace(",", ".") : v),
+            z.coerce.number().positive().max(100000),
+          ),
+        }),
+      )
+      .max(20)
+      .default([]),
+  });
 
 export type ManualProductInput = z.infer<typeof manualProductSchema>;
 export type ManualProductInputRaw = z.input<typeof manualProductSchema>;
@@ -180,3 +196,40 @@ export const profileSchema = z.object({
   targetFiber: optionalNumber,
   units: z.enum(["METRIC", "IMPERIAL"]).default("METRIC"),
 });
+
+const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
+
+// Typed-in macros for a day+slot, with no product or meal behind them —
+// restaurant food, someone else's cooking, a best guess.
+export const quickAddSchema = z.object({
+  date: dateKey,
+  slot: z.enum(SLOTS),
+  label: z.string().trim().max(120).optional().transform((v) => v || null),
+  kcal: optionalNumber,
+  protein: optionalNumber,
+  fat: optionalNumber,
+  carbs: optionalNumber,
+  sugar: optionalNumber,
+  fiber: optionalNumber,
+});
+
+export type QuickAddInputRaw = z.input<typeof quickAddSchema>;
+
+// Copy everything from one whole day into another.
+export const copyDaySchema = z.object({
+  fromDate: dateKey,
+  toDate: dateKey,
+});
+
+export type CopyDayInput = z.input<typeof copyDaySchema>;
+
+// Copy a whole week (7 days from `fromStart`) onto the 7 days from `toStart`.
+export const copyWeekSchema = z.object({
+  fromStart: dateKey,
+  toStart: dateKey,
+});
+
+export type CopyWeekInput = z.input<typeof copyWeekSchema>;
+
+// Meal share codes: 8 characters, stored without the dash.
+export const SHARE_CODE_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/;

@@ -5,52 +5,20 @@ import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
-import { PlanEntryRow, type DayEntry } from "@/components/day-planner";
+import { PlanEntryRow } from "@/components/day-planner";
 import { AddFoodControl } from "@/components/day-tracker";
 import { SlotActionsMenu } from "@/components/slot-actions-menu";
-import type { PickerProduct } from "@/components/add-product-dialog";
+import { DayCopyMenu } from "@/components/day-copy-menu";
+import { RemainingCard } from "@/components/remaining-card";
 import { SlotMacros } from "@/components/slot-macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatLong, keyToDbDate, todayKey } from "@/lib/dates";
-import {
-  fmtMacro,
-  sumDayEntries,
-  type EntryForMacros,
-  type MealMacros,
-} from "@/lib/macros";
+import { fmtMacro, hasAnyMacro, sumDayEntries } from "@/lib/macros";
+import { toDayEntry } from "@/lib/day-entry";
+import { loadPickerProducts } from "@/lib/meal-form-products";
+import { nextOpenSlot, remainingMacros, suggestMeals } from "@/lib/suggest";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-type MacroCols = {
-  kcal: number | null;
-  protein: number | null;
-  fat: number | null;
-  carbs: number | null;
-  sugar: number | null;
-  fiber: number | null;
-};
-
-function toMealMacros(m: MacroCols): MealMacros {
-  return {
-    kcal: m.kcal,
-    protein: m.protein,
-    fat: m.fat,
-    carbs: m.carbs,
-    sugar: m.sugar,
-    fiber: m.fiber,
-  };
-}
-
-function hasMacros(m: MacroCols): boolean {
-  return (
-    m.kcal != null ||
-    m.protein != null ||
-    m.fat != null ||
-    m.carbs != null ||
-    m.sugar != null ||
-    m.fiber != null
-  );
-}
 
 export default async function TrackPage({
   searchParams,
@@ -61,7 +29,7 @@ export default async function TrackPage({
   const { date: dateParam } = await searchParams;
   const date = dateParam && DATE_RE.test(dateParam) ? dateParam : todayKey();
 
-  const [user, entries, mealRecords, tags, productRecords] = await Promise.all([
+  const [user, entries, mealRecords, tags, products] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -77,58 +45,31 @@ export default async function TrackPage({
       where: { userId, date: keyToDbDate(date) },
       orderBy: [{ slot: "asc" }, { position: "asc" }],
       include: {
-        meal: {
-          select: {
-            id: true,
-            name: true,
-            kcal: true,
-            protein: true,
-            fat: true,
-            carbs: true,
-            sugar: true,
-            fiber: true,
-          },
-        },
-        product: {
-          select: {
-            id: true,
-            name: true,
-            kcal: true,
-            protein: true,
-            fat: true,
-            carbs: true,
-            sugar: true,
-            fiber: true,
-          },
-        },
+        meal: { select: { name: true } },
+        product: { select: { name: true } },
       },
     }),
     prisma.meal.findMany({
       where: { userId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, kcal: true, tags: { select: { tagId: true } } },
-    }),
-    prisma.tag.findMany({
-      where: { userId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, color: true },
-    }),
-    prisma.product.findMany({
-      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
-        brand: true,
-        barcode: true,
-        servingGrams: true,
         kcal: true,
         protein: true,
         fat: true,
         carbs: true,
         sugar: true,
         fiber: true,
+        tags: { select: { tagId: true } },
       },
     }),
+    prisma.tag.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
+    }),
+    loadPickerProducts(),
   ]);
 
   const meals = mealRecords.map((m) => ({
@@ -138,30 +79,10 @@ export default async function TrackPage({
     tagIds: m.tags.map((t) => t.tagId),
   }));
 
-  const products: PickerProduct[] = productRecords.map((p) => ({
-    id: p.id,
-    name: p.name,
-    brand: p.brand,
-    barcode: p.barcode,
-    servingGrams: p.servingGrams,
-    per100g: toMealMacros(p),
-  }));
-
-  type Entry = (typeof entries)[number];
-  const forMacros = (e: Entry): EntryForMacros => ({
-    servings: e.servings,
-    grams: e.grams,
-    meal: e.meal ? toMealMacros(e.meal) : null,
-    product: e.product ? toMealMacros(e.product) : null,
-  });
-
   const counted = entries.filter((e) => e.status !== "SKIPPED");
-  const totals = sumDayEntries(counted.map(forMacros));
+  const totals = sumDayEntries(counted);
 
-  const uncounted = counted.filter((e) => {
-    const item = e.product ?? e.meal;
-    return !item || !hasMacros(item);
-  }).length;
+  const uncounted = counted.filter((e) => !hasAnyMacro(e)).length;
 
   const targets = {
     kcal: user?.targetKcal ?? null,
@@ -177,6 +98,10 @@ export default async function TrackPage({
   for (const e of entries) bySlot.get(e.slot as SlotKey)?.push(e);
 
   const isToday = date === todayKey();
+
+  const remaining = remainingMacros(totals, targets);
+  const suggestions = suggestMeals(mealRecords, remaining);
+  const filledSlots = new Set(counted.map((e) => e.slot as SlotKey));
 
   return (
     <>
@@ -194,12 +119,15 @@ export default async function TrackPage({
           <p className="text-lg font-semibold">
             {isToday ? "Today" : formatLong(date)}
           </p>
-          <Link
-            href={`/calendar/${date}`}
-            className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:underline"
-          >
-            <CalendarDays className="size-4" /> Plan this day
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-4">
+            <Link
+              href={`/calendar/${date}`}
+              className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:underline"
+            >
+              <CalendarDays className="size-4" /> Plan this day
+            </Link>
+            {entries.length > 0 && <DayCopyMenu date={date} isEmpty={false} />}
+          </div>
         </div>
         <Link
           href={`/track?date=${addDaysKey(date, 1)}`}
@@ -209,6 +137,8 @@ export default async function TrackPage({
           <ChevronRight className="size-6" />
         </Link>
       </div>
+
+      {entries.length === 0 && <DayCopyMenu date={date} isEmpty />}
 
       <Card className="mb-4">
         <CardContent className="flex flex-col gap-4">
@@ -227,11 +157,19 @@ export default async function TrackPage({
         </CardContent>
       </Card>
 
+      <RemainingCard
+        date={date}
+        isToday={isToday}
+        remaining={remaining}
+        suggestions={suggestions}
+        defaultSlot={nextOpenSlot(filledSlots)}
+      />
+
       <div className="flex flex-col gap-3">
         {SLOTS.map((slot) => {
           const slotEntries = bySlot.get(slot) ?? [];
           const slotCounted = slotEntries.filter((e) => e.status !== "SKIPPED");
-          const slotTotals = sumDayEntries(slotCounted.map(forMacros));
+          const slotTotals = sumDayEntries(slotCounted);
           return (
             <Card key={slot}>
               <CardContent className="flex flex-col gap-3">
@@ -263,21 +201,9 @@ export default async function TrackPage({
                 </div>
                 {slotEntries.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    {slotEntries.map((e) => {
-                      const item = e.product ?? e.meal;
-                      const dayEntry: DayEntry = {
-                        id: e.id,
-                        kind: e.product ? "product" : "meal",
-                        name: item?.name ?? "(removed)",
-                        href: e.meal ? `/meals/${e.meal.id}` : null,
-                        servings: e.servings,
-                        grams: e.grams,
-                        status: e.status,
-                        kcalBasis: item?.kcal ?? null,
-                        hasMacros: item ? hasMacros(item) : false,
-                      };
-                      return <PlanEntryRow key={e.id} entry={dayEntry} />;
-                    })}
+                    {slotEntries.map((e) => (
+                      <PlanEntryRow key={e.id} entry={toDayEntry(e)} />
+                    ))}
                   </div>
                 )}
                 <AddFoodControl

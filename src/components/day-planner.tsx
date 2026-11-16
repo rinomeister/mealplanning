@@ -15,27 +15,14 @@ import {
 } from "@/app/(app)/calendar/actions";
 import { setGramsAction } from "@/app/(app)/track/actions";
 
-/**
- * A rendered day entry — either a prebuilt meal (scaled by `servings`) or a
- * scanned product (scaled by `grams`). `kcalBasis` is per-serving for meals and
- * per-100g for products; `hasMacros` is false when the underlying item carries
- * no nutrition (shown with a warning and excluded from day totals upstream).
- */
-export type DayEntry = {
-  id: string;
-  kind: "meal" | "product";
-  name: string;
-  href: string | null;
-  servings: number;
-  grams: number | null;
-  status: "PLANNED" | "EATEN" | "SKIPPED";
-  kcalBasis: number | null;
-  hasMacros: boolean;
-};
+import type { DayEntry } from "@/lib/day-entry";
+
+export type { DayEntry };
 
 export function PlanEntryRow({ entry }: { entry: DayEntry }) {
   const [isPending, startTransition] = useTransition();
   const isProduct = entry.kind === "product";
+  const isQuick = entry.kind === "quick";
   const current = isProduct ? entry.grams ?? 0 : entry.servings;
   const [qty, setQty] = useState(String(current));
   const skipped = entry.status === "SKIPPED";
@@ -119,9 +106,13 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
           )}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
-          {!isProduct && (
+          {isQuick && (
+            <span className="text-sm text-muted-foreground">Quick add</span>
+          )}
+          {!isProduct && !isQuick && (
             <span className="text-sm text-muted-foreground">×</span>
           )}
+          {!isQuick && (
           <Input
             value={qty}
             onChange={(e) => setQty(e.target.value)}
@@ -133,6 +124,7 @@ export function PlanEntryRow({ entry }: { entry: DayEntry }) {
             className="h-9 w-16 px-1 text-center text-sm md:h-9"
             aria-label={isProduct ? "Grams" : "Servings"}
           />
+          )}
           {isProduct && <span className="text-sm text-muted-foreground">g</span>}
           {scaledKcal && (
             <span className="ml-auto text-sm font-medium tabular-nums text-muted-foreground">

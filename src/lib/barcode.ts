@@ -1,4 +1,5 @@
 import type { MealMacros } from "@/lib/macros";
+import type { Portion } from "@/lib/products";
 
 /**
  * Result of a barcode -> nutrition lookup. Discriminated on `found`, mirroring
@@ -20,6 +21,8 @@ export type BarcodeLookupResult =
       perServing: MealMacros | null;
       /** "user" once someone has hand-edited the macros in our own database. */
       source: "openfoodfacts" | "user";
+      /** Named portions saved on our copy of the product, if any. */
+      portions?: Portion[];
     }
   | { found: false; code: string; error?: string };
 
@@ -37,6 +40,7 @@ export function productRowToResult(row: {
   sugar: number | null;
   fiber: number | null;
   source: string;
+  portions?: Portion[];
 }): BarcodeLookupResult {
   return {
     found: true,
@@ -55,6 +59,7 @@ export function productRowToResult(row: {
     },
     perServing: null,
     source: row.source === "user" ? "user" : "openfoodfacts",
+    portions: row.portions ?? [],
   };
 }
 
@@ -190,4 +195,87 @@ export async function lookupBarcode(code: string): Promise<BarcodeLookupResult> 
     perServing: hasAnyMacro(perServing) ? perServing : null,
     source: "openfoodfacts",
   };
+}
+
+/** One Open Food Facts text-search hit, in the shape the product pickers use. */
+export type OffSearchHit = {
+  barcode: string;
+  name: string;
+  brand: string | null;
+  servingLabel: string | null;
+  servingGrams: number | null;
+  per100g: MealMacros;
+};
+
+/**
+ * Search Open Food Facts by name via its search service. Hits without a usable
+ * barcode or any macros are dropped — they couldn't be logged anyway. Never
+ * throws; failures come back as `{ ok: false }`.
+ */
+export async function searchOff(
+  query: string,
+): Promise<{ ok: true; hits: OffSearchHit[] } | { ok: false; error: string }> {
+  const url =
+    `https://search.openfoodfacts.org/search?q=${encodeURIComponent(query)}` +
+    `&page_size=25&fields=code,product_name,brands,serving_size,nutriments`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+      next: { revalidate: 86400 },
+    });
+  } catch {
+    return { ok: false, error: "Could not reach Open Food Facts." };
+  }
+  if (!res.ok) {
+    return { ok: false, error: `Open Food Facts search failed (${res.status}).` };
+  }
+
+  let data: {
+    hits?: {
+      code?: string;
+      product_name?: string;
+      brands?: string[] | string;
+      serving_size?: string;
+      nutriments?: OffNutriments;
+    }[];
+  };
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: "Malformed response from Open Food Facts." };
+  }
+
+  const hits: OffSearchHit[] = [];
+  const seen = new Set<string>();
+  for (const h of data.hits ?? []) {
+    const code = h.code?.trim();
+    if (!code || !/^\d{6,14}$/.test(code) || seen.has(code)) continue;
+    const name = h.product_name?.trim();
+    if (!name) continue;
+
+    const nutriments = h.nutriments ?? {};
+    let per100g = macrosFrom(nutriments, "_100g");
+    const servingLabel = h.serving_size?.trim() || null;
+    const servingGrams = parseServingGrams(servingLabel);
+    if (!hasAnyMacro(per100g) && servingGrams) {
+      const perServing = macrosFrom(nutriments, "_serving");
+      if (hasAnyMacro(perServing)) per100g = per100gFromServing(perServing, servingGrams);
+    }
+    if (!hasAnyMacro(per100g)) continue;
+
+    const brands = Array.isArray(h.brands) ? h.brands.join(", ") : h.brands;
+    seen.add(code);
+    hits.push({
+      barcode: code,
+      name,
+      brand: brands?.trim() || null,
+      servingLabel,
+      servingGrams,
+      per100g,
+    });
+  }
+  return { ok: true, hits };
 }

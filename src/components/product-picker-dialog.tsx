@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Package, ScanBarcode, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { PickerProduct } from "@/components/add-product-dialog";
+import { OffSearchPanel } from "@/components/off-search-panel";
+import type { PickerProduct } from "@/lib/products";
 
 /** Case-insensitive match across name and brand, so "cekin" finds the brand. */
 function matches(p: PickerProduct, q: string): boolean {
@@ -106,8 +107,8 @@ export function ProductPickerDialog({
           {results.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
               {products.length === 0
-                ? "No products yet. Add products from the Food tab first."
-                : `Nothing matches “${query.trim()}”.`}
+                ? "No products yet — search Open Food Facts by typing a name."
+                : `None of your products match “${query.trim()}”.`}
             </p>
           ) : (
             <div className="flex flex-col">
@@ -142,6 +143,7 @@ export function ProductPickerDialog({
               ))}
             </div>
           )}
+          <OffSearchPanel query={query} onPick={pick} />
         </div>
       </div>
     </div>

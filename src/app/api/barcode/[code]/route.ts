@@ -20,7 +20,12 @@ export async function GET(
 
   // Our own database wins: a product cached here may carry user-corrected macros
   // that OFF doesn't have. Fall back to Open Food Facts only when unknown.
-  const existing = await prisma.product.findUnique({ where: { barcode: code } });
+  const existing = await prisma.product.findUnique({
+    where: { barcode: code },
+    include: {
+      portions: { orderBy: { position: "asc" }, select: { label: true, grams: true } },
+    },
+  });
   if (existing) {
     // `barcode` is nullable on the model (hand-entered foods have none), but we
     // matched on it here, so it's this exact code.
