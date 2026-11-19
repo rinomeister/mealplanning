@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Package, ScanBarcode, Zap } from "lucide-react";
+import { CookingPot, ScanBarcode, Search, Zap } from "lucide-react";
 import { QuickAddDialog } from "@/components/quick-add-dialog";
 import {
-  AddMealControl,
+  MealPickerDialog,
   type MealPickerExtras,
   type PickerMeal,
   type PickerTag,
@@ -20,119 +20,121 @@ import {
   logProductAction,
 } from "@/app/(app)/today/actions";
 
-const BUTTON =
-  "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary active:bg-muted";
-
-/**
- * Per-slot control, four ways in: scan a barcode, pick/type a product (the
- * no-barcode path), add a meal you've already built, or quick-add bare macros.
- */
-export function AddFoodControl({
-  date,
-  slot,
-  slotLabel,
-  meals,
-  tags,
-  products,
-  productUsage,
-  mealUsage,
-  slotCount,
-}: {
-  date: string;
-  slot: string;
-  slotLabel: string;
+export type AddFoodData = {
   meals: PickerMeal[];
   tags: PickerTag[];
   products: PickerProduct[];
   productUsage?: Usage;
   mealUsage?: MealPickerExtras["usage"];
+};
+
+type Open = "scan" | "product" | "meal" | "quick" | null;
+
+const TILE =
+  "press flex h-[60px] flex-col items-center justify-center gap-1 rounded-[14px] bg-surface-2 text-[13px] font-semibold text-ink [&_svg]:size-5";
+
+/**
+ * The four ways into a slot, as tiles: scan a barcode, find a product, add a
+ * saved meal, or quick-add bare macros. `eaten` logs straight to eaten (Today,
+ * for today or earlier) rather than planned.
+ */
+export function AddFoodTiles({
+  date,
+  slot,
+  slotLabel,
+  eaten,
+  data,
+  slotCount,
+}: {
+  date: string;
+  slot: string;
+  slotLabel: string;
+  eaten: boolean;
+  data: AddFoodData;
   slotCount?: number;
 }) {
-  const [scanOpen, setScanOpen] = useState(false);
-  const [productOpen, setProductOpen] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
+  const [open, setOpen] = useState<Open>(null);
+  const close = () => setOpen(null);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={() => setScanOpen(true)}
-        className={BUTTON}
-      >
-        <ScanBarcode className="size-4" /> Scan product
-      </button>
-      <button
-        type="button"
-        onClick={() => setProductOpen(true)}
-        className={BUTTON}
-      >
-        <Package className="size-4" /> Add product
-      </button>
-      <AddMealControl
-        date={date}
-        slot={slot}
-        slotLabel={slotLabel}
-        meals={meals}
-        tags={tags}
-        usage={mealUsage}
-        slotCount={slotCount}
-      />
-      <button type="button" onClick={() => setQuickOpen(true)} className={BUTTON}>
-        <Zap className="size-4" /> Quick add
-      </button>
-      {quickOpen && (
-        <QuickAddDialog
+    <>
+      <div className="grid grid-cols-4 gap-2">
+        <button type="button" className={TILE} onClick={() => setOpen("scan")}>
+          <ScanBarcode /> Scan
+        </button>
+        <button type="button" className={TILE} onClick={() => setOpen("product")}>
+          <Search /> Product
+        </button>
+        <button type="button" className={TILE} onClick={() => setOpen("meal")}>
+          <CookingPot /> Meal
+        </button>
+        <button type="button" className={TILE} onClick={() => setOpen("quick")}>
+          <Zap /> Quick
+        </button>
+      </div>
+
+      {open === "quick" && (
+        <QuickAddDialog date={date} slot={slot} slotLabel={slotLabel} eaten={eaten} onClose={close} />
+      )}
+      {open === "meal" && (
+        <MealPickerDialog
           date={date}
           slot={slot}
           slotLabel={slotLabel}
-          onClose={() => setQuickOpen(false)}
+          meals={data.meals}
+          tags={data.tags}
+          usage={data.mealUsage}
+          slotCount={slotCount}
+          eaten={eaten}
+          onClose={close}
         />
       )}
-      {scanOpen && (
+      {open === "scan" && (
         <ScanProductDialog
           title={`Scan into ${slotLabel}`}
-          confirmLabel={`Log to ${slotLabel}`}
-          gramsLabel="How much did you eat? (grams)"
+          confirmLabel={`Add to ${slotLabel}`}
+          gramsLabel="How much? (grams)"
           onConfirm={async (p, grams) => {
-            const res = await logProductAction({
-              date,
-              slot,
-              barcode: p.barcode,
-              name: p.name,
-              brand: p.brand,
-              servingLabel: p.servingLabel,
-              servingGrams: p.servingGrams,
-              kcal: p.per100g.kcal,
-              protein: p.per100g.protein,
-              fat: p.per100g.fat,
-              carbs: p.per100g.carbs,
-              sugar: p.per100g.sugar,
-              fiber: p.per100g.fiber,
-              grams,
-            });
+            const res = await logProductAction(
+              {
+                date,
+                slot,
+                barcode: p.barcode,
+                name: p.name,
+                brand: p.brand,
+                servingLabel: p.servingLabel,
+                servingGrams: p.servingGrams,
+                kcal: p.per100g.kcal,
+                protein: p.per100g.protein,
+                fat: p.per100g.fat,
+                carbs: p.per100g.carbs,
+                sugar: p.per100g.sugar,
+                fiber: p.per100g.fiber,
+                grams,
+              },
+              { eaten },
+            );
             return res.ok;
           }}
-          onClose={() => setScanOpen(false)}
+          onClose={close}
         />
       )}
-      {productOpen && (
+      {open === "product" && (
         <AddProductDialog
           title={`Add to ${slotLabel}`}
-          confirmLabel={`Log to ${slotLabel}`}
-          products={products}
-          usage={productUsage}
+          confirmLabel={`Add to ${slotLabel}`}
+          products={data.products}
+          usage={data.productUsage}
           onLog={async (productId, grams) => {
-            const res = await logExistingProductAction({
-              date,
-              slot,
-              productId,
-              grams,
-            });
+            const res = await logExistingProductAction(
+              { date, slot, productId, grams },
+              { eaten },
+            );
             return res.ok;
           }}
-          onClose={() => setProductOpen(false)}
+          onClose={close}
         />
       )}
-    </div>
+    </>
   );
 }

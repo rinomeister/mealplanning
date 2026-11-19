@@ -34,11 +34,14 @@ export function QuickAddDialog({
   date,
   slot,
   slotLabel,
+  eaten = false,
   onClose,
 }: {
   date: string;
   slot: string;
   slotLabel: string;
+  /** Log as eaten (from Today) rather than planned. */
+  eaten?: boolean;
   onClose: () => void;
 }) {
   const [label, setLabel] = useState("");
@@ -71,7 +74,7 @@ export function QuickAddDialog({
     }
     setMessage("");
     startTransition(async () => {
-      const res = await quickAddAction({ date, slot, label, ...parsed });
+      const res = await quickAddAction({ date, slot, label, ...parsed }, { eaten });
       if (res.ok) onClose();
       else setMessage(res.error);
     });

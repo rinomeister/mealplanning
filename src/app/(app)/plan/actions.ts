@@ -10,6 +10,16 @@ import { copyEntries, nextPosition } from "@/lib/entries";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
+type CreateResult = { ok: true; id: string } | { ok: false; error: string };
+
+/** Logged from Today (today or earlier) means eaten; from Plan, planned. */
+export type LogOptions = { eaten?: boolean };
+
+function revalidateAll() {
+  revalidatePath("/plan", "layout");
+  revalidatePath("/today");
+  revalidatePath("/");
+}
 
 /**
  * Add a meal to a day+slot. For a meal whose batch was weighed, `grams` (when
@@ -22,7 +32,7 @@ export async function addPlanEntryAction(input: {
   mealId: string;
   servings: number | string;
   grams?: number | string | null;
-}): Promise<ActionResult> {
+}, opts: LogOptions = {}): Promise<CreateResult> {
   const userId = await requireUserId();
   const parsed = planEntrySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid entry." };
@@ -52,7 +62,7 @@ export async function addPlanEntryAction(input: {
     servings = grams / gps;
   }
 
-  await prisma.planEntry.create({
+  const created = await prisma.planEntry.create({
     data: {
       userId,
       date: keyToDbDate(date),
@@ -60,16 +70,15 @@ export async function addPlanEntryAction(input: {
       mealId,
       servings,
       grams,
+      status: opts.eaten ? "EATEN" : "PLANNED",
       position: await nextPosition(userId, date, slot),
       ...pickMacros(meal),
     },
+    select: { id: true },
   });
 
-  revalidatePath(`/plan/day/${date}`);
-  revalidatePath("/plan");
-  revalidatePath("/today");
-  revalidatePath("/");
-  return { ok: true };
+  revalidateAll();
+  return { ok: true, id: created.id };
 }
 
 export async function removePlanEntryAction(id: string): Promise<ActionResult> {
@@ -81,9 +90,7 @@ export async function removePlanEntryAction(id: string): Promise<ActionResult> {
   if (!entry) return { ok: false, error: "Entry not found." };
 
   await prisma.planEntry.delete({ where: { id } });
-  revalidatePath(`/plan/day/${entry.date.toISOString().slice(0, 10)}`);
-  revalidatePath("/plan");
-  revalidatePath("/today");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -106,8 +113,7 @@ export async function setServingsAction(
       ? (entry.grams / entry.servings) * servings
       : entry.grams;
   await prisma.planEntry.update({ where: { id }, data: { servings, grams } });
-  revalidatePath("/plan");
-  revalidatePath("/today");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -121,8 +127,7 @@ export async function setEntryStatusAction(
     data: { status },
   });
   if (count === 0) return { ok: false, error: "Entry not found." };
-  revalidatePath("/plan");
-  revalidatePath("/today");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -142,7 +147,7 @@ export async function copyWeekAction(
     return { ok: false, error: "Pick two different weeks." };
   }
 
-  const count = await copyEntries(
+  const { length: count } = await copyEntries(
     userId,
     { dateFrom: fromStart, dateTo: addDaysKey(fromStart, 6) },
     (sourceDate) =>

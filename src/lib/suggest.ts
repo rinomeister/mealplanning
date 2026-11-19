@@ -1,5 +1,4 @@
 import type { Macros, MealMacros } from "@/lib/macros";
-import { SLOTS, type SlotKey } from "@/lib/schemas";
 
 type Targets = { [K in keyof Macros]: number | null };
 
@@ -56,11 +55,3 @@ export function suggestMeals(
     .map((x) => x.m);
 }
 
-/** The slot after the latest one that has something in it — "your next meal". */
-export function nextOpenSlot(filled: Set<SlotKey>): SlotKey {
-  let lastFilled = -1;
-  SLOTS.forEach((s, i) => {
-    if (filled.has(s)) lastFilled = i;
-  });
-  return SLOTS[Math.min(lastFilled + 1, SLOTS.length - 1)];
-}

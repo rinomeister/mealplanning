@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import {
+  SLOTS,
+  type SlotKey,
   copyDaySchema,
   copySlotSchema,
   createMealFromSlotSchema,
@@ -26,10 +28,16 @@ import {
   pickMacros,
   sumDayEntries,
 } from "@/lib/macros";
-import { formatHuman, keyToDbDate } from "@/lib/dates";
+import { dbDateToKey, formatHuman, keyToDbDate, todayKey } from "@/lib/dates";
 import { copyEntries, nextPosition, refreshUpcomingEntries } from "@/lib/entries";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
+type CreateResult = { ok: true; id: string } | { ok: false; error: string };
+type IdsResult = { ok: true; ids: string[] } | { ok: false; error: string };
+
+/** Logged from Today (today or earlier) means eaten; from Plan, planned. */
+type LogOptions = { eaten?: boolean };
+const statusFor = (opts: LogOptions) => (opts.eaten ? "EATEN" : "PLANNED");
 
 /** kcal to a whole number, gram macros to one decimal; null stays null. */
 function roundMacro(value: number | null, kind: "kcal" | "g"): number | null {
@@ -87,7 +95,8 @@ export async function upsertProductMacrosAction(
  */
 export async function logProductAction(
   input: Omit<LogProductInputRaw, "slot"> & { slot: string },
-): Promise<ActionResult> {
+  opts: LogOptions = {},
+): Promise<CreateResult> {
   const userId = await requireUserId();
   const parsed = logProductSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid entry." };
@@ -103,20 +112,22 @@ export async function logProductAction(
     select: MACRO_SELECT,
   });
 
-  await prisma.planEntry.create({
+  const created = await prisma.planEntry.create({
     data: {
       userId,
       date: keyToDbDate(date),
       slot,
       productId: product.id,
       grams,
+      status: statusFor(opts),
       position: await nextPosition(userId, date, slot),
       ...pickMacros(product),
     },
+    select: { id: true },
   });
 
   revalidateDay(date);
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 /**
@@ -125,7 +136,8 @@ export async function logProductAction(
  */
 export async function logExistingProductAction(
   input: Omit<LogExistingProductInputRaw, "slot"> & { slot: string },
-): Promise<ActionResult> {
+  opts: LogOptions = {},
+): Promise<CreateResult> {
   const userId = await requireUserId();
   const parsed = logExistingProductSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid entry." };
@@ -138,20 +150,22 @@ export async function logExistingProductAction(
   });
   if (!product) return { ok: false, error: "That product no longer exists." };
 
-  await prisma.planEntry.create({
+  const created = await prisma.planEntry.create({
     data: {
       userId,
       date: keyToDbDate(date),
       slot,
       productId,
       grams,
+      status: statusFor(opts),
       position: await nextPosition(userId, date, slot),
       ...pickMacros(product),
     },
+    select: { id: true },
   });
 
   revalidateDay(date);
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 /**
@@ -161,7 +175,8 @@ export async function logExistingProductAction(
  */
 export async function quickAddAction(
   input: Omit<QuickAddInputRaw, "slot"> & { slot: string },
-): Promise<ActionResult> {
+  opts: LogOptions = {},
+): Promise<CreateResult> {
   const userId = await requireUserId();
   const parsed = quickAddSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid entry." };
@@ -181,21 +196,23 @@ export async function quickAddAction(
       (macros.protein ?? 0) * 4 + (macros.carbs ?? 0) * 4 + (macros.fat ?? 0) * 9,
     );
 
-  await prisma.planEntry.create({
+  const created = await prisma.planEntry.create({
     data: {
       userId,
       date: keyToDbDate(date),
       slot,
       label,
       servings: 1,
+      status: statusFor(opts),
       position: await nextPosition(userId, date, slot),
       ...macros,
       kcal,
     },
+    select: { id: true },
   });
 
   revalidateDay(date);
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 /**
@@ -328,18 +345,18 @@ export async function createMealFromSlotAction(
  */
 export async function copySlotFromDateAction(
   input: CopySlotInput,
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; count: number; ids: string[] } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const parsed = copySlotSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const { fromDate, toDate, slot } = parsed.data;
 
-  const count = await copyEntries(
+  const ids = await copyEntries(
     userId,
     { dateFrom: fromDate, dateTo: fromDate, slot },
     () => toDate,
   );
-  if (count === 0) {
+  if (ids.length === 0) {
     return {
       ok: false,
       error: `Nothing logged in ${SLOT_LABELS[slot]} on that day.`,
@@ -347,13 +364,13 @@ export async function copySlotFromDateAction(
   }
 
   revalidateDay(toDate);
-  return { ok: true, count };
+  return { ok: true, count: ids.length, ids };
 }
 
 /** Copy a whole day (every slot, non-skipped entries) into another day. */
 export async function copyDayAction(
   input: CopyDayInput,
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+): Promise<{ ok: true; count: number; ids: string[] } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const parsed = copyDaySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
@@ -362,15 +379,94 @@ export async function copyDayAction(
     return { ok: false, error: "Pick a different day to copy from." };
   }
 
-  const count = await copyEntries(
+  const ids = await copyEntries(
     userId,
     { dateFrom: fromDate, dateTo: fromDate },
     () => toDate,
   );
-  if (count === 0) {
+  if (ids.length === 0) {
     return { ok: false, error: `Nothing logged on ${formatHuman(fromDate)}.` };
   }
 
   revalidateDay(toDate);
-  return { ok: true, count };
+  return { ok: true, count: ids.length, ids };
+}
+
+const SLOT_SET = new Set<string>(SLOTS);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Move one entry into another slot on the same day, at the end. */
+export async function moveEntryAction(id: string, slot: string): Promise<ActionResult> {
+  const userId = await requireUserId();
+  if (!SLOT_SET.has(slot)) return { ok: false, error: "Unknown slot." };
+  const entry = await prisma.planEntry.findFirst({
+    where: { id, userId },
+    select: { date: true, slot: true },
+  });
+  if (!entry) return { ok: false, error: "Entry not found." };
+  if (entry.slot === slot) return { ok: true };
+  const date = dbDateToKey(entry.date);
+  await prisma.planEntry.update({
+    where: { id },
+    data: { slot: slot as SlotKey, position: await nextPosition(userId, date, slot as SlotKey) },
+  });
+  revalidateDay(date);
+  return { ok: true };
+}
+
+/** Copy one entry to the same slot on another day, as planned. */
+export async function copyEntryToDateAction(id: string, toDate: string): Promise<CreateResult> {
+  const userId = await requireUserId();
+  if (!DATE_RE.test(toDate)) return { ok: false, error: "Pick a day." };
+  const entry = await prisma.planEntry.findFirst({ where: { id, userId } });
+  if (!entry) return { ok: false, error: "Entry not found." };
+  const created = await prisma.planEntry.create({
+    data: {
+      userId,
+      date: keyToDbDate(toDate),
+      slot: entry.slot,
+      mealId: entry.mealId,
+      productId: entry.productId,
+      servings: entry.servings,
+      grams: entry.grams,
+      label: entry.label,
+      position: await nextPosition(userId, toDate, entry.slot),
+      ...pickMacros(entry),
+    },
+    select: { id: true },
+  });
+  revalidateDay(toDate);
+  return { ok: true, id: created.id };
+}
+
+/** Mark every planned entry in a day+slot as eaten. */
+export async function markSlotEatenAction(date: string, slot: string): Promise<IdsResult> {
+  const userId = await requireUserId();
+  if (!DATE_RE.test(date) || !SLOT_SET.has(slot)) return { ok: false, error: "Invalid request." };
+  const where = { userId, date: keyToDbDate(date), slot: slot as SlotKey, status: "PLANNED" as const };
+  const rows = await prisma.planEntry.findMany({ where, select: { id: true } });
+  await prisma.planEntry.updateMany({ where, data: { status: "EATEN" } });
+  revalidateDay(date);
+  return { ok: true, ids: rows.map((r) => r.id) };
+}
+
+/** Set several entries back to a status — undo for "mark all eaten". */
+export async function setEntriesStatusAction(
+  ids: string[],
+  status: "PLANNED" | "EATEN" | "SKIPPED",
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  if (ids.length === 0) return { ok: true };
+  await prisma.planEntry.updateMany({ where: { id: { in: ids }, userId }, data: { status } });
+  revalidateDay(todayKey());
+  return { ok: true };
+}
+
+/** Delete several entries at once (clearing a slot, undoing a copy). */
+export async function removeEntriesAction(ids: string[]): Promise<ActionResult> {
+  const userId = await requireUserId();
+  if (ids.length === 0) return { ok: true };
+  await prisma.planEntry.deleteMany({ where: { id: { in: ids }, userId } });
+  revalidateDay(todayKey());
+  return { ok: true };
 }

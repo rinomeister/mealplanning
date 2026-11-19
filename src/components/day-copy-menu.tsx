@@ -5,7 +5,8 @@ import { CalendarClock, Copy, CopyPlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { copyDayAction } from "@/app/(app)/today/actions";
+import { copyDayAction, removeEntriesAction } from "@/app/(app)/today/actions";
+import { useToast } from "@/components/toast";
 import { Modal } from "@/components/ui/modal";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 
@@ -18,6 +19,7 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
   const [pickDate, setPickDate] = useState(addDaysKey(date, -1));
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
   const yesterday = addDaysKey(date, -1);
 
   useEffect(() => {
@@ -36,7 +38,14 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
       if (!res.ok) {
         setMessage(res.error);
         if (!closeAfter) setOpen(true);
-      } else if (closeAfter) setOpen(false);
+        return;
+      }
+      if (closeAfter) setOpen(false);
+      toast.undoable({
+        message: `Copied ${res.count} item${res.count === 1 ? "" : "s"} from ${formatHuman(fromDate)}`,
+        commit: () => {},
+        undo: () => startTransition(async () => void (await removeEntriesAction(res.ids))),
+      });
     });
   }
 
@@ -44,6 +53,7 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
     <>
       {isEmpty ? (
         <div className="mb-4 flex flex-col gap-1">
+          <p className="t-cap mb-1">Empty day</p>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -78,9 +88,10 @@ export function DayCopyMenu({ date, isEmpty }: { date: string; isEmpty: boolean 
             setPickDate(yesterday);
             setOpen(true);
           }}
-          className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:underline"
+          className="grid size-11 place-items-center rounded-[14px] text-ink hover:bg-surface-2"
+          aria-label="Copy a whole day into this one"
         >
-          <Copy className="size-4" /> Copy a day
+          <Copy className="size-5" />
         </button>
       )}
 

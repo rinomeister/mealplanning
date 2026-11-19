@@ -67,7 +67,8 @@ const MACRO_SELECT = {
 } as const;
 
 /**
- * Copy existing entries to new day(s). `place` maps each source entry to its
+ * Copy existing entries to new day(s), returning the new entries' ids (so a
+ * copy can be undone). `place` maps each source entry to its
  * target date (and keeps the slot). Copies come in as PLANNED, appended after
  * whatever each target day+slot already holds. Meals and products take their
  * *current* macros — a copy is a fresh entry — while quick adds carry theirs
@@ -77,7 +78,7 @@ export async function copyEntries(
   userId: string,
   where: { dateFrom: DateKey; dateTo: DateKey; slot?: SlotKey },
   place: (sourceDate: DateKey) => DateKey,
-): Promise<number> {
+): Promise<string[]> {
   const sources = await prisma.planEntry.findMany({
     where: {
       userId,
@@ -91,7 +92,7 @@ export async function copyEntries(
       product: { select: MACRO_SELECT },
     },
   });
-  if (sources.length === 0) return 0;
+  if (sources.length === 0) return [];
 
   const targetDates = [...new Set(sources.map((s) => place(dbDateToKey(s.date))))];
   const existing = await prisma.planEntry.groupBy({
@@ -104,7 +105,8 @@ export async function copyEntries(
     nextPos.set(`${dbDateToKey(row.date)}|${row.slot}`, (row._max.position ?? -1) + 1);
   }
 
-  await prisma.planEntry.createMany({
+  const created = await prisma.planEntry.createManyAndReturn({
+    select: { id: true },
     data: sources.map((s) => {
       const date = place(dbDateToKey(s.date));
       const key = `${date}|${s.slot}`;
@@ -132,7 +134,7 @@ export async function copyEntries(
       };
     }),
   });
-  return sources.length;
+  return created.map((c) => c.id);
 }
 
 /** How many upcoming, not-yet-eaten entries deleting a meal/product removes. */

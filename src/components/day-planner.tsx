@@ -181,8 +181,10 @@ export type PickerMeal = {
   gramsPerServing?: number | null;
 };
 
-/** Extra context for the meal picker on Track. */
+/** Extra context for the meal picker on Today. */
 export type MealPickerExtras = {
+  /** Log as eaten (from Today) rather than planned. */
+  eaten?: boolean;
   usage?: Pick<Usage, "recentIds" | "last">;
   /** Items counted in this slot — offers "Save as meal" when above zero. */
   slotCount?: number;
@@ -256,6 +258,7 @@ export function MealPickerDialog({
   tags,
   usage,
   slotCount = 0,
+  eaten = false,
   onClose,
 }: {
   date: string;
@@ -346,13 +349,16 @@ export function MealPickerDialog({
     const amount = amountFor(m);
     setPendingId(m.id);
     startTransition(async () => {
-      const res = await addPlanEntryAction({
-        date,
-        slot,
-        mealId: m.id,
-        servings: amount.servings,
-        grams: amount.grams,
-      });
+      const res = await addPlanEntryAction(
+        {
+          date,
+          slot,
+          mealId: m.id,
+          servings: amount.servings,
+          grams: amount.grams,
+        },
+        { eaten },
+      );
       setPendingId(null);
       if (res.ok) {
         setAddedCount((prev) => ({ ...prev, [m.id]: (prev[m.id] ?? 0) + 1 }));

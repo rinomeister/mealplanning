@@ -33,6 +33,16 @@ export function ViewportSync() {
   useEffect(() => {
     const root = document.documentElement;
     const vv = window.visualViewport;
+
+    // The server picks "today" and the current slot from the phone's clock.
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && !document.cookie.includes(`tz=${encodeURIComponent(tz)}`)) {
+        document.cookie = `tz=${encodeURIComponent(tz)}; path=/; max-age=31536000; samesite=lax`;
+      }
+    } catch {
+      // No Intl time zone: the server's clock is used.
+    }
     const coarse = window.matchMedia("(pointer: coarse)").matches;
 
     let frame = 0;
