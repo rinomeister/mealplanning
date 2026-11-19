@@ -135,6 +135,13 @@ export type LogProductInputRaw = z.input<typeof logProductSchema>;
 export const manualProductSchema = productMacrosSchema
   .omit({ barcode: true })
   .extend({
+    // Optional for typed-in products. "" clears it; left out keeps what's there.
+    barcode: z
+      .string()
+      .trim()
+      .regex(/^(\d{6,14})?$/, "Invalid barcode")
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v || null)),
     // Named portions ("1 slice" = 25 g). Replaces the product's whole list.
     portions: z
       .array(

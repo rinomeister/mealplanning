@@ -1,20 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check, Pencil } from "lucide-react";
-import { ShareMealButton } from "@/components/share-meal-button";
-import { BatchWeightCard } from "@/components/batch-weight-card";
-import { FavoriteMealButton } from "@/components/favorite-meal-button";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
-import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MacroSummary } from "@/components/macro-summary";
-import { fmtMacro } from "@/lib/macros";
-import { DeleteMealButton } from "@/components/delete-meal-button";
-import { formatIngredientLine } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { userNow } from "@/lib/user-time";
+import { MealDetail } from "@/components/meal/meal-detail";
 
 export default async function MealDetailPage({
   params,
@@ -26,140 +14,53 @@ export default async function MealDetailPage({
   const userId = await requireUserId();
   const { id } = await params;
   const { imported } = await searchParams;
+  const now = await userNow();
 
-  const meal = await prisma.meal.findFirst({
-    where: { id, userId },
-    include: {
-      ingredients: { orderBy: { position: "asc" } },
-      tags: { include: { tag: true } },
-      share: { select: { code: true, imports: true } },
-    },
-  });
-
+  const [meal, last] = await Promise.all([
+    prisma.meal.findFirst({
+      where: { id, userId },
+      include: {
+        ingredients: { orderBy: { position: "asc" } },
+        tags: { include: { tag: true } },
+        share: { select: { code: true, imports: true } },
+      },
+    }),
+    prisma.planEntry.findFirst({
+      where: { userId, mealId: id },
+      orderBy: { createdAt: "desc" },
+      select: { servings: true, grams: true },
+    }),
+  ]);
   if (!meal) notFound();
 
-  const hasMacros =
-    meal.kcal != null ||
-    meal.protein != null ||
-    meal.fat != null ||
-    meal.carbs != null ||
-    meal.sugar != null ||
-    meal.fiber != null;
-
   return (
-    <>
-      <PageHeader
-        title={meal.name}
-        description={meal.servingLabel ? `Per serving: ${meal.servingLabel}` : undefined}
-        action={
-          <div className="flex gap-2">
-            <FavoriteMealButton mealId={meal.id} initial={meal.favorite} />
-            <Link
-              href={`/meals/${meal.id}/edit`}
-              className={cn(buttonVariants({ variant: "outline" }))}
-            >
-              <Pencil /> Edit
-            </Link>
-          </div>
-        }
-      />
-
-      <div className="flex flex-col gap-4">
-        {imported && (
-          <p className="flex items-center gap-2 rounded-lg bg-primary/10 p-3 text-sm font-medium text-primary">
-            <Check className="size-4 shrink-0" /> Imported — this copy is yours to edit and plan.
-          </p>
-        )}
-        {meal.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {meal.tags.map(({ tag }) => (
-              <Badge
-                key={tag.id}
-                style={{
-                  backgroundColor: (tag.color ?? "#64748b") + "22",
-                  borderColor: "transparent",
-                  color: tag.color ?? "#64748b",
-                }}
-              >
-                {tag.name}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {hasMacros && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">
-                Macros per serving
-                {meal.serves > 1 ? ` · makes ${fmtMacro(meal.serves)}` : ""}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <MacroSummary
-                macros={{
-                  kcal: meal.kcal ?? 0,
-                  protein: meal.protein ?? 0,
-                  fat: meal.fat ?? 0,
-                  carbs: meal.carbs ?? 0,
-                  sugar: meal.sugar ?? 0,
-                  fiber: meal.fiber ?? 0,
-                }}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        <BatchWeightCard
-          mealId={meal.id}
-          serves={meal.serves}
-          cookedGrams={meal.cookedGrams}
-          kcalPerServing={meal.kcal}
-        />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Ingredients</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {meal.ingredients.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No ingredients listed.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-sm">
-                {meal.ingredients.map((ing) => (
-                  <li key={ing.id} className="flex gap-2">
-                    <span className="text-primary">•</span>
-                    {formatIngredientLine(ing)}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {meal.prepSteps && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Preparation</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                {meal.prepSteps}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="flex gap-2">
-          <ShareMealButton
-            mealId={meal.id}
-            mealName={meal.name}
-            initialCode={meal.share?.code ?? null}
-            imports={meal.share?.imports ?? 0}
-          />
-          <DeleteMealButton id={meal.id} />
-        </div>
-      </div>
-    </>
+    <MealDetail
+      today={now.today}
+      slot={now.slot}
+      imported={!!imported}
+      last={last}
+      meal={{
+        id: meal.id,
+        name: meal.name,
+        favorite: meal.favorite,
+        servingLabel: meal.servingLabel,
+        serves: meal.serves,
+        cookedGrams: meal.cookedGrams,
+        prepSteps: meal.prepSteps,
+        macros: {
+          kcal: meal.kcal ?? 0,
+          protein: meal.protein ?? 0,
+          fat: meal.fat ?? 0,
+          carbs: meal.carbs ?? 0,
+          sugar: meal.sugar ?? 0,
+          fiber: meal.fiber ?? 0,
+        },
+        hasMacros: [meal.kcal, meal.protein, meal.fat, meal.carbs, meal.sugar, meal.fiber].some((v) => v != null),
+        ingredients: meal.ingredients.map((i) => ({ id: i.id, name: i.name, qty: i.qty, unit: i.unit, note: i.note })),
+        tags: meal.tags.map(({ tag }) => ({ id: tag.id, name: tag.name, color: tag.color })),
+        shareCode: meal.share?.code ?? null,
+        imports: meal.share?.imports ?? 0,
+      }}
+    />
   );
 }

@@ -81,7 +81,7 @@ export function Stepper({
           value={value}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => onChange(e.target.value)}
-          className="num w-20 bg-transparent text-right text-[22px] font-semibold outline-none"
+          className={cn("num min-w-0 bg-transparent text-[22px] font-semibold outline-none", unit ? "w-20 text-right" : "w-full text-center")}
         />
         {unit && <span className="w-16 truncate text-sm text-ink-3">{unit}</span>}
       </label>

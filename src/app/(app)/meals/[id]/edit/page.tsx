@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
-import { PageHeader } from "@/components/page-header";
-import { MealForm, type MealFormInitial } from "@/components/meal-form";
+import { MealBuilder, type MealFormInitial } from "@/components/meal/meal-builder";
+import { loadTargets } from "@/lib/load-day";
 import { loadMealFormProducts } from "@/lib/meal-form-products";
 import { loadProductUsage } from "@/lib/load-usage";
 
@@ -18,7 +18,7 @@ export default async function EditMealPage({
   const userId = await requireUserId();
   const { id } = await params;
 
-  const [meal, tags, products, productUsage] = await Promise.all([
+  const [meal, tags, products, productUsage, targets] = await Promise.all([
     prisma.meal.findFirst({
       where: { id, userId },
       include: {
@@ -33,6 +33,7 @@ export default async function EditMealPage({
     }),
     loadMealFormProducts(),
     loadProductUsage(userId),
+    loadTargets(userId),
   ]);
 
   if (!meal) notFound();
@@ -78,14 +79,6 @@ export default async function EditMealPage({
   };
 
   return (
-    <>
-      <PageHeader title="Edit meal" />
-      <MealForm
-        tags={tags}
-        products={products}
-        productUsage={productUsage}
-        initial={initial}
-      />
-    </>
+    <MealBuilder tags={tags} products={products} productUsage={productUsage} targets={targets} initial={initial} />
   );
 }

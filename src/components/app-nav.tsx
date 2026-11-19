@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { defaultSlot } from "@/lib/default-slot";
-import { FLOW_PATHS, flowHref } from "@/lib/add-flow";
+import { isFlowPath, flowHref } from "@/lib/add-flow";
 import { openAddSheet } from "@/components/add/add-sheet";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +128,7 @@ function Tab({ item, active }: { item: NavItem; active: boolean }) {
 export function TabBar() {
   const pathname = usePathname();
   // Full-screen add flows have their own bottom bars.
-  if (FLOW_PATHS.includes(pathname)) return null;
+  if (isFlowPath(pathname)) return null;
   return (
     <nav
       aria-label="Main"

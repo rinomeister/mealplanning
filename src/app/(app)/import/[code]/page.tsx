@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { MacroSummary } from "@/components/macro-summary";
+import { MacroLine } from "@/components/macro-ui";
+import { tagStyle } from "@/lib/tag-colors";
 import { EmptyState } from "@/components/empty-state";
 import { ImportMealButton } from "@/components/import-meal-button";
 import { fmtMacro, hasAnyMacro } from "@/lib/macros";
@@ -82,16 +82,9 @@ export default async function SharedMealPage({
         {meal.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {meal.tags.map(({ tag }) => (
-              <Badge
-                key={tag.name}
-                style={{
-                  backgroundColor: (tag.color ?? "#64748b") + "22",
-                  borderColor: "transparent",
-                  color: tag.color ?? "#64748b",
-                }}
-              >
+              <span key={tag.name} className="tag" style={tagStyle(tag.color)}>
                 {tag.name}
-              </Badge>
+              </span>
             ))}
           </div>
         )}
@@ -106,7 +99,7 @@ export default async function SharedMealPage({
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <MacroSummary
+              <MacroLine
                 macros={{
                   kcal: meal.kcal ?? 0,
                   protein: meal.protein ?? 0,

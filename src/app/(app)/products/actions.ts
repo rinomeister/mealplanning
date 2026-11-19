@@ -44,11 +44,27 @@ export async function createProductAction(
   const parsed = manualProductSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid product details." };
 
-  const { portions, ...data } = parsed.data;
+  const { portions, barcode, ...data } = parsed.data;
+  // A barcode we already hold: the typed-in values replace that row's.
+  const existing = barcode
+    ? await prisma.product.findUnique({ where: { barcode }, select: { id: true } })
+    : null;
+  if (existing) {
+    await prisma.$transaction([
+      prisma.productPortion.deleteMany({ where: { productId: existing.id } }),
+      prisma.product.update({
+        where: { id: existing.id },
+        data: { ...data, source: "user", portions: { create: portionRows(portions) } },
+      }),
+    ]);
+    await refreshUpcomingEntries({ productId: existing.id }, data);
+    revalidateProducts();
+    return { ok: true, id: existing.id };
+  }
   const product = await prisma.product.create({
     data: {
       ...data,
-      barcode: null,
+      barcode: barcode ?? null,
       source: "user",
       portions: { create: portionRows(portions) },
     },
@@ -73,6 +89,10 @@ export async function updateProductAction(
   const { id, portions, ...data } = parsed.data;
   const exists = await prisma.product.findUnique({ where: { id }, select: { id: true } });
   if (!exists) return { ok: false, error: "Product not found." };
+  if (data.barcode) {
+    const clash = await prisma.product.findUnique({ where: { barcode: data.barcode }, select: { id: true } });
+    if (clash && clash.id !== id) return { ok: false, error: "Another product already has that barcode." };
+  }
 
   await prisma.$transaction([
     prisma.productPortion.deleteMany({ where: { productId: id } }),

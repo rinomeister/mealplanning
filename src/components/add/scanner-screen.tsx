@@ -16,7 +16,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast";
 import { FlowScreen } from "@/components/add/flow-screen";
-import { NewProductForm } from "@/components/add/new-product-form";
+import { ProductForm } from "@/components/product/product-form";
 import { ProductConfirm, type ConfirmProduct } from "@/components/add/product-confirm";
 import { setProductFavoriteAction } from "@/app/(app)/products/actions";
 import {
@@ -263,10 +263,10 @@ export function ScannerScreen({
   // ---------------------------------------------------------------- create
   if (phase.kind === "create") {
     return (
-      <NewProductForm
+      <ProductForm
+        embedded
         barcode={phase.code}
-        slot={slot}
-        onBack={() => setPhase({ kind: "missing", code: phase.code })}
+        onCancel={() => setPhase({ kind: "missing", code: phase.code })}
         onSaved={() => void lookup(phase.code)}
       />
     );

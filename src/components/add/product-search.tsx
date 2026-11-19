@@ -16,7 +16,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/toast";
 import { FlowScreen } from "@/components/add/flow-screen";
 import { ProductConfirm, type ConfirmProduct } from "@/components/add/product-confirm";
-import { NewProductForm } from "@/components/add/new-product-form";
+import { ProductForm } from "@/components/product/product-form";
 import { importOffProductAction, setProductFavoriteAction } from "@/app/(app)/products/actions";
 import { logExistingProductAction, removeEntriesAction } from "@/app/(app)/today/actions";
 
@@ -196,10 +196,10 @@ export function ProductSearch({
 
   if (creating) {
     return (
-      <NewProductForm
+      <ProductForm
+        embedded
         initialName={q}
-        slot={slot}
-        onBack={() => setCreating(false)}
+        onCancel={() => setCreating(false)}
         onSaved={(p) => {
           setCreating(false);
           setConfirm(p);

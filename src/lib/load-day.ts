@@ -47,3 +47,19 @@ export async function loadDayContext(
     totals: sumByStatus(entries),
   };
 }
+
+/** Just the user's daily targets. */
+export async function loadTargets(userId: string): Promise<Targets> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { targetKcal: true, targetProtein: true, targetFat: true, targetCarbs: true, targetSugar: true, targetFiber: true },
+  });
+  return {
+    kcal: u?.targetKcal ?? null,
+    protein: u?.targetProtein ?? null,
+    fat: u?.targetFat ?? null,
+    carbs: u?.targetCarbs ?? null,
+    sugar: u?.targetSugar ?? null,
+    fiber: u?.targetFiber ?? null,
+  };
+}

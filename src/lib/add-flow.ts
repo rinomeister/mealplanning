@@ -19,6 +19,11 @@ export function flowHref(kind: FlowKind, slot: SlotKey, date?: string | null): s
 /** Paths that are full-screen flows: no tab bar. */
 export const FLOW_PATHS = Object.values(PATHS);
 
+/** Full-screen pages: no tab bar (they bring their own top and bottom bars). */
+export function isFlowPath(pathname: string): boolean {
+  return FLOW_PATHS.includes(pathname) || pathname.startsWith("/products/") || pathname.startsWith("/meals/");
+}
+
 export function parseSlot(raw: string | undefined | null): SlotKey | null {
   return raw && (SLOTS as readonly string[]).includes(raw) ? (raw as SlotKey) : null;
 }
