@@ -14,7 +14,7 @@ export function formatShareCode(code: string): string {
  */
 export function parseShareCode(input: string): string | null {
   let raw = input.trim();
-  const fromLink = raw.match(/\/share\/([^/?#\s]+)/i);
+  const fromLink = raw.match(/\/(?:share|import)\/([^/?#\s]+)/i);
   if (fromLink) raw = fromLink[1];
   const code = raw.toUpperCase().replace(/[^0-9A-Z]/g, "");
   return SHARE_CODE_RE.test(code) ? code : null;

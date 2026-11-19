@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { updateProfileAction } from "@/app/(app)/profile/actions";
+import { updateProfileAction } from "@/app/(app)/me/actions";
 import type { UnitSystem } from "@/lib/units";
 
 export type ProfileInitial = {
@@ -99,7 +99,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
               {isPending && <Loader2 className="animate-spin" />}
               Save
             </Button>
-            {saved && <span className="text-sm text-primary">Saved ✓</span>}
+            {saved && <span className="text-sm text-good">Saved ✓</span>}
           </div>
         </form>
       </CardContent>

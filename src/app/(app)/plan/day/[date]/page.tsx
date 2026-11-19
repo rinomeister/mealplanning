@@ -71,7 +71,7 @@ export default async function DayPage({
     <>
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
-          href={`/calendar/${addDaysKey(date, -1)}`}
+          href={`/plan/day/${addDaysKey(date, -1)}`}
           className="rounded-lg p-2 hover:bg-muted"
           aria-label="Previous day"
         >
@@ -80,14 +80,14 @@ export default async function DayPage({
         <div className="text-center">
           <p className="font-semibold">{formatLong(date)}</p>
           <Link
-            href="/calendar"
+            href="/plan"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
           >
             <CalendarDays className="size-3" /> Month view
           </Link>
         </div>
         <Link
-          href={`/calendar/${addDaysKey(date, 1)}`}
+          href={`/plan/day/${addDaysKey(date, 1)}`}
           className="rounded-lg p-2 hover:bg-muted"
           aria-label="Next day"
         >

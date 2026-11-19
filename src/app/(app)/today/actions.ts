@@ -38,9 +38,9 @@ function roundMacro(value: number | null, kind: "kcal" | "g"): number | null {
 }
 
 function revalidateDay(date: string) {
-  revalidatePath("/track");
-  revalidatePath(`/calendar/${date}`);
-  revalidatePath("/calendar");
+  revalidatePath("/today");
+  revalidatePath(`/plan/day/${date}`);
+  revalidatePath("/plan");
   revalidatePath("/");
 }
 
@@ -76,7 +76,7 @@ export async function upsertProductMacrosAction(
   });
   await refreshUpcomingEntries({ productId: product.id }, product);
 
-  revalidatePath("/track");
+  revalidatePath("/today");
   revalidatePath("/scan");
   return { ok: true };
 }
@@ -240,8 +240,8 @@ export async function setGramsAction(
     servings = grams / gps;
   }
   await prisma.planEntry.update({ where: { id }, data: { grams, servings } });
-  revalidatePath("/track");
-  revalidatePath("/calendar");
+  revalidatePath("/today");
+  revalidatePath("/plan");
   revalidatePath("/");
   return { ok: true };
 }
@@ -317,8 +317,8 @@ export async function createMealFromSlotAction(
     select: { id: true },
   });
 
-  revalidatePath("/meals");
-  revalidatePath("/track");
+  revalidatePath("/library/meals");
+  revalidatePath("/today");
   return { ok: true, id: created.id };
 }
 

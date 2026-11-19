@@ -23,8 +23,8 @@ import {
   removePlanEntryAction,
   setEntryStatusAction,
   setServingsAction,
-} from "@/app/(app)/calendar/actions";
-import { setGramsAction } from "@/app/(app)/track/actions";
+} from "@/app/(app)/plan/actions";
+import { setGramsAction } from "@/app/(app)/today/actions";
 import { setMealFavoriteAction } from "@/app/(app)/meals/actions";
 import { SaveSlotMealForm } from "@/components/save-slot-meal";
 import { groupByUsage, type Usage } from "@/lib/usage";

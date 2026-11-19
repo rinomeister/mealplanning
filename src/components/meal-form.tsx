@@ -288,7 +288,7 @@ export function MealForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Totals, pinned while scrolling */}
-      <div className="sticky top-0 z-20 -mx-1 pt-[env(safe-area-inset-top)]">
+      <div className="sticky top-0 z-20 -mx-1">
         <div className="rounded-xl border border-border bg-card/95 p-3 shadow-md backdrop-blur">
           <div className="flex items-end justify-between gap-3">
             <div>

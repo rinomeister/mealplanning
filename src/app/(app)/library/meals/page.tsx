@@ -38,11 +38,11 @@ export default async function MealsPage({
   return (
     <>
       <PageHeader
-        title="Food"
+        title="Library"
         description="Your saved meals and recipes."
         action={
           <div className="hidden gap-2 sm:flex">
-            <Link href="/share" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/import" className={buttonVariants({ variant: "outline" })}>
               <Download /> Import
             </Link>
             <Link href="/meals/new" className={buttonVariants()}>
@@ -53,7 +53,7 @@ export default async function MealsPage({
       />
       <FoodTabs active="meals" />
 
-      <form action="/meals" className="mb-3 flex gap-2">
+      <form action="/library/meals" className="mb-3 flex gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -91,7 +91,7 @@ export default async function MealsPage({
         <Link href="/meals/new" className={cn(buttonVariants(), "flex-1")}>
           <Plus /> New meal
         </Link>
-        <Link href="/share" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/import" className={buttonVariants({ variant: "outline" })}>
           <Download /> Import
         </Link>
       </div>
@@ -161,7 +161,7 @@ function buildHref(q: string | undefined, tag: string | undefined) {
   if (q) params.set("q", q);
   if (tag) params.set("tag", tag);
   const qs = params.toString();
-  return qs ? `/meals?${qs}` : "/meals";
+  return qs ? `/library/meals?${qs}` : "/library/meals";
 }
 
 function FilterChip({

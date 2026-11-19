@@ -136,7 +136,7 @@ function MacroBar({
             className={cn(
               "w-[4.5rem] shrink-0 text-right text-xs tabular-nums",
               s.over && "text-destructive",
-              s.met && "font-medium text-primary",
+              s.met && "font-medium text-good",
               !s.over && !s.met && "text-muted-foreground",
             )}
           >

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { importSharedMealAction } from "@/app/(app)/share/actions";
+import { importSharedMealAction } from "@/app/(app)/import/actions";
 
 /** Import the previewed meal; on success the action redirects to the copy. */
 export function ImportMealButton({ code }: { code: string }) {

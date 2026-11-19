@@ -19,7 +19,7 @@ export default async function ImportByCodePage({
   await requireUserId();
   const { code: raw } = await searchParams;
   const code = raw ? parseShareCode(raw) : null;
-  if (code) redirect(`/share/${code}`);
+  if (code) redirect(`/import/${code}`);
 
   return (
     <>
@@ -29,7 +29,7 @@ export default async function ImportByCodePage({
       />
       <Card>
         <CardContent>
-          <form action="/share" className="flex flex-col gap-3">
+          <form action="/import" className="flex flex-col gap-3">
             <Label htmlFor="share-code">Share code or link</Label>
             <Input
               id="share-code"

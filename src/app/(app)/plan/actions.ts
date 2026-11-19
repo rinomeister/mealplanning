@@ -65,9 +65,9 @@ export async function addPlanEntryAction(input: {
     },
   });
 
-  revalidatePath(`/calendar/${date}`);
-  revalidatePath("/calendar");
-  revalidatePath("/track");
+  revalidatePath(`/plan/day/${date}`);
+  revalidatePath("/plan");
+  revalidatePath("/today");
   revalidatePath("/");
   return { ok: true };
 }
@@ -81,9 +81,9 @@ export async function removePlanEntryAction(id: string): Promise<ActionResult> {
   if (!entry) return { ok: false, error: "Entry not found." };
 
   await prisma.planEntry.delete({ where: { id } });
-  revalidatePath(`/calendar/${entry.date.toISOString().slice(0, 10)}`);
-  revalidatePath("/calendar");
-  revalidatePath("/track");
+  revalidatePath(`/plan/day/${entry.date.toISOString().slice(0, 10)}`);
+  revalidatePath("/plan");
+  revalidatePath("/today");
   return { ok: true };
 }
 
@@ -106,8 +106,8 @@ export async function setServingsAction(
       ? (entry.grams / entry.servings) * servings
       : entry.grams;
   await prisma.planEntry.update({ where: { id }, data: { servings, grams } });
-  revalidatePath("/calendar");
-  revalidatePath("/track");
+  revalidatePath("/plan");
+  revalidatePath("/today");
   return { ok: true };
 }
 
@@ -121,8 +121,8 @@ export async function setEntryStatusAction(
     data: { status },
   });
   if (count === 0) return { ok: false, error: "Entry not found." };
-  revalidatePath("/calendar");
-  revalidatePath("/track");
+  revalidatePath("/plan");
+  revalidatePath("/today");
   return { ok: true };
 }
 
@@ -155,9 +155,9 @@ export async function copyWeekAction(
     return { ok: false, error: "Nothing planned or logged that week." };
   }
 
-  revalidatePath("/calendar", "layout");
-  revalidatePath("/track");
-  revalidatePath("/shopping");
+  revalidatePath("/plan", "layout");
+  revalidatePath("/today");
+  revalidatePath("/plan/list");
   revalidatePath("/");
   return { ok: true, count };
 }

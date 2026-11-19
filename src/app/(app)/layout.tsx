@@ -1,9 +1,7 @@
-import { LogOut } from "lucide-react";
 import { requireUserId } from "@/lib/auth-helpers";
-import { getSessionUser } from "@/lib/auth-helpers";
-import { DesktopNav, MobileNav } from "@/components/app-nav";
+import { Rail, TabBar } from "@/components/app-nav";
 import { InstallPrompt } from "@/components/install-prompt";
-import { signOutAction } from "./actions";
+import { ViewportSync } from "@/components/viewport-sync";
 
 export default async function AppLayout({
   children,
@@ -11,42 +9,25 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   await requireUserId();
-  const user = await getSessionUser();
 
   return (
-    <div className="md:flex md:min-h-dvh">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card p-4 md:flex">
-        <div className="mb-6 px-2">
-          <p className="text-lg font-bold tracking-tight text-primary">MealPlan</p>
-        </div>
-        <DesktopNav />
-        <div className="mt-auto px-2 pt-4">
-          <p className="mb-2 truncate text-xs text-muted-foreground">
-            {user?.email}
-          </p>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <LogOut className="size-4" />
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
+    <div className="app-shell">
+      <ViewportSync />
+      <Rail />
 
-      {/* Main content */}
-      <div className="flex-1">
-        {/* Bottom padding clears the mobile nav *plus* the home indicator;
-            the side padding respects the notch inset in landscape. */}
-        <main className="mx-auto w-full max-w-3xl pb-[calc(6.5rem+env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] pt-5 md:pb-10 md:pl-8 md:pr-8 md:pt-8">
-          {children}
+      {/* The column starts below the status bar (black-translucent), so
+          content never scrolls under the clock. */}
+      <div className="flex min-w-0 flex-1 flex-col pt-[env(safe-area-inset-top)]">
+        {/* The only scrolling element. Side padding clears the notch in
+            landscape. */}
+        <main id="app-scroll" className="app-scroll">
+          <div className="mx-auto w-full max-w-3xl pb-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-3 desk:px-8 desk:pb-10 desk:pt-8">
+            {children}
+          </div>
         </main>
+        <TabBar />
       </div>
 
-      <MobileNav />
       <InstallPrompt />
     </div>
   );

@@ -27,9 +27,9 @@ function portionRows(portions: { label: string; grams: number }[]) {
 }
 
 function revalidateProducts() {
-  revalidatePath("/products");
-  revalidatePath("/track");
-  revalidatePath("/meals", "layout");
+  revalidatePath("/library/products");
+  revalidatePath("/today");
+  revalidatePath("/library/meals", "layout");
 }
 
 /**
@@ -88,7 +88,7 @@ export async function updateProductAction(
   await refreshUpcomingEntries({ productId: id }, data);
 
   revalidateProducts();
-  revalidatePath("/calendar", "layout");
+  revalidatePath("/plan", "layout");
   revalidatePath("/");
   return { ok: true };
 }
@@ -120,10 +120,10 @@ export async function deleteProductAction(id: string): Promise<ActionResult> {
   if (!product) return { ok: false, error: "That product no longer exists." };
 
   await deleteProductKeepingHistory(product);
-  revalidatePath("/products");
-  revalidatePath("/track");
-  revalidatePath("/calendar", "layout");
-  revalidatePath("/shopping");
+  revalidatePath("/library/products");
+  revalidatePath("/today");
+  revalidatePath("/plan", "layout");
+  revalidatePath("/plan/list");
   revalidatePath("/");
   return { ok: true };
 }
@@ -148,7 +148,7 @@ export async function importOffProductAction(
     select: PICKER_PRODUCT_SELECT,
   });
 
-  revalidatePath("/products");
+  revalidatePath("/library/products");
   return { ok: true, product: toPickerProduct(row) };
 }
 
@@ -173,7 +173,7 @@ export async function setProductFavoriteAction(
   } else {
     await prisma.productFavorite.deleteMany({ where: { userId, productId } });
   }
-  revalidatePath("/track");
-  revalidatePath("/products");
+  revalidatePath("/today");
+  revalidatePath("/library/products");
   return { ok: true };
 }

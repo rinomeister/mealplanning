@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Check, Copy, Loader2, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createMealShareAction, revokeMealShareAction } from "@/app/(app)/share/actions";
+import { createMealShareAction, revokeMealShareAction } from "@/app/(app)/import/actions";
 import { Modal } from "@/components/ui/modal";
 import { formatShareCode } from "@/lib/share";
 
@@ -133,7 +133,7 @@ function ShareDetails({
 }) {
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const [error, setError] = useState("");
-  const link = `${window.location.origin}/share/${code}`;
+  const link = `${window.location.origin}/import/${code}`;
   const canNativeShare = "share" in navigator;
 
   async function copy(what: "code" | "link") {

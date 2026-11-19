@@ -6,7 +6,7 @@ import { Check, Loader2, Plus, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { fmtMacro } from "@/lib/macros";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
-import { addPlanEntryAction } from "@/app/(app)/calendar/actions";
+import { addPlanEntryAction } from "@/app/(app)/plan/actions";
 import type { SuggestMeal } from "@/lib/suggest";
 
 type Remaining = {

@@ -9,7 +9,7 @@ import { MacroSummary } from "@/components/macro-summary";
 import { BarcodeCamera } from "@/components/barcode-camera";
 import { parseDecimal } from "@/lib/utils";
 import { hasAnyMacro, scaleGrams, type MealMacros } from "@/lib/macros";
-import { upsertProductMacrosAction } from "@/app/(app)/track/actions";
+import { upsertProductMacrosAction } from "@/app/(app)/today/actions";
 import type { BarcodeLookupResult } from "@/lib/barcode";
 import { PortionChips } from "@/components/portion-chips";
 import { Modal } from "@/components/ui/modal";

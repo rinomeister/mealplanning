@@ -47,7 +47,7 @@ export async function setAtHomeAction(
   } else {
     await prisma.shoppingCheck.deleteMany({ where: { userId, itemKey } });
   }
-  revalidatePath("/shopping");
+  revalidatePath("/plan/list");
 }
 
 /**
@@ -71,12 +71,12 @@ export async function setItemAisleAction(
       create: { userId, name: key, aisle },
     });
   }
-  revalidatePath("/shopping");
+  revalidatePath("/plan/list");
 }
 
 /** Clear this trip's ticks. Items marked "at home" stay put. */
 export async function clearCheckedAction(): Promise<void> {
   const userId = await requireUserId();
   await prisma.shoppingCheck.deleteMany({ where: { userId, atHome: false } });
-  revalidatePath("/shopping");
+  revalidatePath("/plan/list");
 }

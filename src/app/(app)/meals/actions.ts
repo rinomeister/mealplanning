@@ -71,7 +71,7 @@ export async function createMealAction(
   } catch (e) {
     return { ok: false, error: messageFrom(e) };
   }
-  revalidatePath("/meals");
+  revalidatePath("/library/meals");
   redirect(`/meals/${created.id}`);
 }
 
@@ -136,10 +136,10 @@ export async function updateMealAction(
   } catch (e) {
     return { ok: false, error: messageFrom(e) };
   }
-  revalidatePath("/meals");
+  revalidatePath("/library/meals");
   revalidatePath(`/meals/${id}`);
-  revalidatePath("/track");
-  revalidatePath("/calendar", "layout");
+  revalidatePath("/today");
+  revalidatePath("/plan", "layout");
   revalidatePath("/");
   redirect(`/meals/${id}`);
 }
@@ -166,8 +166,8 @@ export async function setCookedWeightAction(
   await rescaleUpcomingBatchEntries(id, { cookedGrams: grams, serves: meal.serves });
 
   revalidatePath(`/meals/${id}`);
-  revalidatePath("/track");
-  revalidatePath("/calendar", "layout");
+  revalidatePath("/today");
+  revalidatePath("/plan", "layout");
   revalidatePath("/");
   return { ok: true };
 }
@@ -179,8 +179,8 @@ export async function setMealFavoriteAction(
 ): Promise<void> {
   const userId = await requireUserId();
   await prisma.meal.updateMany({ where: { id, userId }, data: { favorite } });
-  revalidatePath("/track");
-  revalidatePath("/meals");
+  revalidatePath("/today");
+  revalidatePath("/library/meals");
   revalidatePath(`/meals/${id}`);
 }
 
@@ -201,12 +201,12 @@ export async function deleteMealAction(
   if (!meal) return { ok: false, error: "Meal not found." };
   // Past days keep it (by name, with their numbers); upcoming plans go.
   await deleteMealKeepingHistory(meal);
-  revalidatePath("/meals");
-  revalidatePath("/track");
-  revalidatePath("/calendar", "layout");
-  revalidatePath("/shopping");
+  revalidatePath("/library/meals");
+  revalidatePath("/today");
+  revalidatePath("/plan", "layout");
+  revalidatePath("/plan/list");
   revalidatePath("/");
-  redirect("/meals");
+  redirect("/library/meals");
 }
 
 export async function createTagAction(
@@ -224,7 +224,7 @@ export async function createTagAction(
       create: { userId, name: parsed.data.name, color: parsed.data.color ?? null },
       select: { id: true, name: true, color: true },
     });
-    revalidatePath("/meals");
+    revalidatePath("/library/meals");
     return tag;
   } catch {
     return { error: "Could not create tag." };

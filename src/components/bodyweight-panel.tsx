@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   addBodyweightAction,
   deleteBodyweightAction,
-} from "@/app/(app)/profile/actions";
+} from "@/app/(app)/me/actions";
 import { displayToKg, kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { formatHuman } from "@/lib/dates";
 import { parseDecimal } from "@/lib/utils";

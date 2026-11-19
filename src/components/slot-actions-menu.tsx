@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SaveSlotMealForm } from "@/components/save-slot-meal";
-import { copySlotFromDateAction } from "@/app/(app)/track/actions";
+import { copySlotFromDateAction } from "@/app/(app)/today/actions";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 import { Modal } from "@/components/ui/modal";
 import type { SlotKey } from "@/lib/schemas";

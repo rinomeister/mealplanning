@@ -29,7 +29,7 @@ export async function updateProfileAction(input: unknown): Promise<Result> {
       units: d.units,
     },
   });
-  revalidatePath("/profile");
+  revalidatePath("/me");
   revalidatePath("/");
   return { ok: true };
 }
@@ -46,7 +46,7 @@ export async function addBodyweightAction(input: unknown): Promise<Result> {
     update: { weightKg, note },
     create: { userId, weightKg, recordedAt: keyToDbDate(recordedAt), note },
   });
-  revalidatePath("/profile");
+  revalidatePath("/me");
   revalidatePath("/");
   return { ok: true };
 }
@@ -54,6 +54,6 @@ export async function addBodyweightAction(input: unknown): Promise<Result> {
 export async function deleteBodyweightAction(id: string): Promise<void> {
   const userId = await requireUserId();
   await prisma.bodyweightLog.deleteMany({ where: { id, userId } });
-  revalidatePath("/profile");
+  revalidatePath("/me");
   revalidatePath("/");
 }

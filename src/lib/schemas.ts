@@ -11,9 +11,9 @@ export type SlotKey = (typeof SLOTS)[number];
 
 export const SLOT_LABELS: Record<SlotKey, string> = {
   BREAKFAST: "Breakfast",
-  SNACK_1: "Snack #1",
+  SNACK_1: "Snack 1",
   LUNCH: "Lunch",
-  SNACK_2: "Snack #2",
+  SNACK_2: "Snack 2",
   DINNER: "Dinner",
 };
 

@@ -66,7 +66,7 @@ export default async function CalendarPage({
 
       <div className="mb-3 flex items-center justify-between">
         <Link
-          href={`/calendar?m=${monthParam(prev.year, prev.month0)}`}
+          href={`/plan?m=${monthParam(prev.year, prev.month0)}`}
           className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Previous month"
         >
@@ -74,7 +74,7 @@ export default async function CalendarPage({
         </Link>
         <p className="text-lg font-semibold">{formatMonthTitle(year, month0)}</p>
         <Link
-          href={`/calendar?m=${monthParam(next.year, next.month0)}`}
+          href={`/plan?m=${monthParam(next.year, next.month0)}`}
           className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Next month"
         >
@@ -96,7 +96,7 @@ export default async function CalendarPage({
           return (
             <Link
               key={cell.key}
-              href={`/calendar/${cell.key}`}
+              href={`/plan/day/${cell.key}`}
               className={cn(
                 "flex aspect-square flex-col items-center justify-start rounded-lg border p-1 text-sm transition-colors",
                 cell.inMonth

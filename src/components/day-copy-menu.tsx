@@ -5,7 +5,7 @@ import { CalendarClock, Copy, CopyPlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { copyDayAction } from "@/app/(app)/track/actions";
+import { copyDayAction } from "@/app/(app)/today/actions";
 import { Modal } from "@/components/ui/modal";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 

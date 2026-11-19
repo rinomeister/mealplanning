@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseDecimal } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
-import { quickAddAction } from "@/app/(app)/track/actions";
+import { quickAddAction } from "@/app/(app)/today/actions";
 
 const FIELDS = [
   { key: "kcal", label: "kcal" },

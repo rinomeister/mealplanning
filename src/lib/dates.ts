@@ -48,6 +48,11 @@ export function formatLong(key: DateKey): string {
   return format(parseISO(key), "EEEE, MMMM d, yyyy");
 }
 
+/** "Thursday 19 November", as shown above page titles. */
+export function formatDayHeading(key: DateKey): string {
+  return format(parseISO(key), "EEEE d MMMM");
+}
+
 export function formatMonthTitle(year: number, month0: number): string {
   return format(new Date(year, month0, 1), "MMMM yyyy");
 }

@@ -1,15 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// next/font self-hosts both families, so they work offline in the PWA.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin", "latin-ext"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin", "latin-ext"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -31,18 +34,21 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    // Content runs under the status bar; top bars pad with safe-area-inset-top.
+    statusBarStyle: "black-translucent",
     title: "MealPlan",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#16a34a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F4F0" },
+    { media: "(prefers-color-scheme: dark)", color: "#0D0E10" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  // Android: shrink the layout viewport when the keyboard opens so dialogs
-  // (capped at 100dvh) stay fully visible above it.
+  // Android: shrink the layout viewport when the keyboard opens.
   interactiveWidget: "resizes-content",
 };
 
@@ -52,8 +58,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <body className="min-h-dvh">{children}</body>
+    <html
+      lang="en"
+      className={`${inter.variable} ${spaceGrotesk.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="min-h-dvh font-sans antialiased">{children}</body>
     </html>
   );
 }

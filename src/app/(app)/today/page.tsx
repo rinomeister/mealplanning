@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PageHeader } from "@/components/page-header";
+import { AvatarLink } from "@/components/avatar-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
 import { PlanEntryRow } from "@/components/day-planner";
@@ -41,6 +42,8 @@ export default async function TrackPage({
     prisma.user.findUnique({
       where: { id: userId },
       select: {
+        name: true,
+        email: true,
         targetKcal: true,
         targetProtein: true,
         targetFat: true,
@@ -120,11 +123,14 @@ export default async function TrackPage({
 
   return (
     <>
-      <PageHeader title="Track" description="Log what you eat and track it against your goals." />
+      <PageHeader
+        title="Today"
+        action={<AvatarLink name={user?.name || user?.email} />}
+      />
 
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
-          href={`/track?date=${addDaysKey(date, -1)}`}
+          href={`/today?date=${addDaysKey(date, -1)}`}
           className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Previous day"
         >
@@ -136,7 +142,7 @@ export default async function TrackPage({
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-4">
             <Link
-              href={`/calendar/${date}`}
+              href={`/plan/day/${date}`}
               className="inline-flex min-h-8 items-center gap-1.5 text-sm text-muted-foreground hover:underline"
             >
               <CalendarDays className="size-4" /> Plan this day
@@ -145,7 +151,7 @@ export default async function TrackPage({
           </div>
         </div>
         <Link
-          href={`/track?date=${addDaysKey(date, 1)}`}
+          href={`/today?date=${addDaysKey(date, 1)}`}
           className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted active:bg-muted"
           aria-label="Next day"
         >

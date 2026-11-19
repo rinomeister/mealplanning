@@ -1,36 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import {
-  CalendarRange,
-  LayoutDashboard,
-  NotebookPen,
-  User,
-  UtensilsCrossed,
+  CalendarDays,
+  ChartPie,
+  House,
+  Library,
+  Plus,
+  type LucideIcon,
 } from "lucide-react";
+import { defaultSlot } from "@/lib/default-slot";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  /** Label in the desktop rail, where there's room to say more. */
+  railLabel?: string;
+  icon: LucideIcon;
   exact?: boolean;
-  /** Extra path roots this tab owns, for sections that span several routes. */
+  /** Extra path roots this tab owns. */
   also?: string[];
 };
 
-// Five tabs: iOS tab bars get unreadable past that. Two of these are merged
-// sections that switch with an on-page segmented control — "Food" holds meals
-// you cook and single products you eat; "Plan" holds the calendar and the
-// shopping list it feeds.
-const NAV: NavItem[] = [
-  { href: "/", label: "Home", icon: LayoutDashboard, exact: true },
-  { href: "/meals", label: "Food", icon: UtensilsCrossed, also: ["/products"] },
-  { href: "/track", label: "Today", icon: NotebookPen },
-  { href: "/calendar", label: "Plan", icon: CalendarRange, also: ["/shopping"] },
-  { href: "/profile", label: "Profile", icon: User },
-];
+// Home is the glanceable dashboard, Today is where you log. Library holds
+// products and meals; Plan holds the week plan and the shopping list.
+const HOME: NavItem = { href: "/", label: "Home", icon: House, exact: true };
+const TODAY: NavItem = { href: "/today", label: "Today", icon: ChartPie };
+const LIBRARY: NavItem = {
+  href: "/library/products",
+  label: "Library",
+  icon: Library,
+  also: ["/library", "/meals", "/products"],
+};
+const PLAN: NavItem = {
+  href: "/plan",
+  label: "Plan",
+  railLabel: "Plan & list",
+  icon: CalendarDays,
+};
+const NAV = [HOME, TODAY, LIBRARY, PLAN];
 
 function matches(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -44,67 +55,155 @@ function isActive(pathname: string, item: NavItem) {
   );
 }
 
-export function DesktopNav() {
+/** Where "+" goes: the add sheet for the slot that fits the time of day. */
+function addHref() {
+  return `/today?add=${defaultSlot()}`;
+}
+function scanHref() {
+  return `/scan?slot=${defaultSlot()}`;
+}
+
+/**
+ * The centre "+": tap opens Add for the current slot, long-press goes
+ * straight to the scanner.
+ */
+function AddButton() {
+  const router = useRouter();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const longPressed = useRef(false);
+
+  function start() {
+    longPressed.current = false;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      longPressed.current = true;
+      navigator.vibrate?.(10);
+      router.push(scanHref());
+    }, 500);
+  }
+  function cancel() {
+    clearTimeout(timer.current);
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label="Add food (hold to scan)"
+      className="press -mt-3.5 grid size-15 shrink-0 place-items-center rounded-[20px] bg-accent text-on-accent shadow-[0_6px_18px_rgba(0,0,0,.22)]"
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={() => {
+        if (longPressed.current) return;
+        router.push(addHref());
+      }}
+    >
+      <Plus className="size-7" strokeWidth={2.25} />
+    </button>
+  );
+}
+
+function Tab({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-[3px] text-[11px] font-semibold",
+        active ? "text-ink" : "text-ink-3",
+      )}
+    >
+      <Icon className="size-[22px]" strokeWidth={active ? 2.25 : 2} />
+      {item.label}
+    </Link>
+  );
+}
+
+/** Phone/tablet bottom bar. Last child of the shell's flex column, not fixed. */
+export function TabBar() {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
-        const { href, label, icon: Icon } = item;
-        const active = isActive(pathname, item);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            <Icon className="size-5" />
-            {label}
-          </Link>
-        );
-      })}
+    <nav
+      aria-label="Main"
+      className="safe-bottom hide-on-kbd shrink-0 border-t border-line bg-surface desk:hidden"
+    >
+      <div className="mx-auto flex max-w-lg items-start justify-around px-2 pb-1 pt-1.5 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+        <Tab item={HOME} active={isActive(pathname, HOME)} />
+        <Tab item={TODAY} active={isActive(pathname, TODAY)} />
+        <div className="flex flex-1 justify-center">
+          <AddButton />
+        </div>
+        <Tab item={LIBRARY} active={isActive(pathname, LIBRARY)} />
+        <Tab item={PLAN} active={isActive(pathname, PLAN)} />
+      </div>
     </nav>
   );
 }
 
-export function MobileNav() {
+/** Desktop (≥900 px) left rail: Add food, the four sections, Me at the bottom. */
+export function Rail() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // "A" opens Add from anywhere on desktop, unless you're typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "a" && e.key !== "A") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      router.push(addHref());
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [router]);
+
+  const meActive = matches(pathname, "/me");
+
   return (
-    // The root layout opts into `viewportFit: "cover"`, so the page extends
-    // under the home indicator. The bar's background fills to the true bottom
-    // edge, but `pb-[env(safe-area-inset-bottom)]` lifts the tap targets clear
-    // of it — without this the lower half of each button is unpressable.
-    <nav
-      aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-    >
-      <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 py-1 pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]">
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-bg px-4 pb-6 pt-6 desk:flex">
+      <button
+        type="button"
+        onClick={() => router.push(addHref())}
+        className="press mb-6 flex h-[52px] items-center gap-2.5 rounded-btn bg-accent px-5 font-semibold text-on-accent"
+      >
+        <Plus className="size-5" strokeWidth={2.25} />
+        Add food
+        <kbd className="ml-auto font-sans text-xs font-semibold opacity-60">A</kbd>
+      </button>
+      <nav aria-label="Main" className="flex flex-col gap-1">
         {NAV.map((item) => {
-          const { href, label, icon: Icon } = item;
           const active = isActive(pathname, item);
           return (
             <Link
-              key={href}
-              href={href}
+              key={item.href}
+              href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                // min-h-12 keeps each target at ~48px, above the 44px iOS minimum.
-                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-1.5 text-[13px] font-medium leading-none tracking-tight transition-colors",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground active:bg-muted",
+                "flex h-[52px] items-center rounded-btn px-5 font-semibold transition-colors",
+                active ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2/60",
               )}
             >
-              <Icon className="size-6 shrink-0" />
-              {label}
+              {item.railLabel ?? item.label}
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+      <Link
+        href="/me"
+        aria-current={meActive ? "page" : undefined}
+        className={cn(
+          "mt-auto flex h-[52px] items-center rounded-btn px-5 font-semibold transition-colors",
+          meActive ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2/60",
+        )}
+      >
+        Me &amp; settings
+      </Link>
+    </aside>
   );
 }

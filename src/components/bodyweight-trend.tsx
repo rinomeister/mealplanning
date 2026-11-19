@@ -66,7 +66,7 @@ export function BodyweightTrend({
           <span
             className={cn(
               "inline-flex items-center gap-0.5 text-sm font-medium",
-              down && "text-primary",
+              down && "text-good",
               up && "text-muted-foreground",
               !down && !up && "text-muted-foreground",
             )}

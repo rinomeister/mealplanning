@@ -136,6 +136,6 @@ export async function importSharedMealAction(
     data: { imports: { increment: 1 } },
   });
 
-  revalidatePath("/meals");
+  revalidatePath("/library/meals");
   redirect(`/meals/${created.id}?imported=1`);
 }

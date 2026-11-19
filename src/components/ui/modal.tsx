@@ -36,7 +36,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -44,7 +44,7 @@ export function Modal({
     >
       <div
         className={cn(
-          "flex max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top))] w-full flex-col overflow-y-auto rounded-2xl bg-card text-left shadow-lg sm:max-h-[90dvh] sm:max-w-md",
+          "flex max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top))] w-full flex-col overflow-y-auto rounded-sheet bg-surface text-left shadow-[0_10px_40px_rgba(0,0,0,.2)] sm:max-h-[90dvh] sm:max-w-md",
           className,
         )}
         onClick={(e) => e.stopPropagation()}

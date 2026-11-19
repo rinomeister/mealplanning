@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { copyWeekAction } from "@/app/(app)/calendar/actions";
+import { copyWeekAction } from "@/app/(app)/plan/actions";
 import { addDaysKey, formatHuman } from "@/lib/dates";
 
 /** Monday of the week containing `key`. */
@@ -122,7 +122,7 @@ export function WeekCopyCard({ today }: { today: string }) {
 
             {message && (
               <p
-                className={`flex items-center gap-1.5 text-sm ${message.ok ? "text-primary" : "text-destructive"}`}
+                className={`flex items-center gap-1.5 text-sm ${message.ok ? "text-good" : "text-destructive"}`}
               >
                 {message.ok && <Check className="size-4" />}
                 {message.text}

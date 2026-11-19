@@ -9,7 +9,7 @@ import {
   setAtHomeAction,
   setItemAisleAction,
   toggleShoppingCheckAction,
-} from "@/app/(app)/shopping/actions";
+} from "@/app/(app)/plan/list/actions";
 
 /**
  * One line of the shopping list: tick it off as you shop, or open its menu to

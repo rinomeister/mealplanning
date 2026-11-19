@@ -18,7 +18,7 @@ import {
 import {
   logExistingProductAction,
   logProductAction,
-} from "@/app/(app)/track/actions";
+} from "@/app/(app)/today/actions";
 
 const BUTTON =
   "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-sm font-medium text-primary active:bg-muted";

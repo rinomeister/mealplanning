@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
+import { LogOut } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ThemeSetting } from "@/components/theme";
+import { signOutAction } from "../actions";
 import { ProfileForm, type ProfileInitial } from "@/components/profile-form";
 import { ScannerSettings } from "@/components/scanner-settings";
 import { BodyweightPanel, type WeightLog } from "@/components/bodyweight-panel";
@@ -44,7 +49,7 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Your details, goals, and weight log." />
+      <PageHeader title="Me & settings" />
       <div className="flex flex-col gap-4">
         <ProfileForm initial={profileInitial} />
         <BodyweightPanel
@@ -52,7 +57,22 @@ export default async function ProfilePage() {
           units={user.units as UnitSystem}
           today={todayKey()}
         />
+        <Card>
+          <CardHeader>
+            <CardTitle>Appearance</CardTitle>
+            <CardDescription>Applies to this device only.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ThemeSetting />
+          </CardContent>
+        </Card>
         <ScannerSettings />
+        <form action={signOutAction}>
+          <p className="mb-2 truncate text-sm text-ink-3">Signed in as {user.email}</p>
+          <Button type="submit" variant="outline" className="w-full">
+            <LogOut /> Sign out
+          </Button>
+        </form>
       </div>
     </>
   );

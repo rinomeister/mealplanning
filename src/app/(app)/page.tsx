@@ -5,7 +5,9 @@ import { requireUserId, getSessionUser } from "@/lib/auth-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalProgress } from "@/components/goal-progress";
 import { BodyweightTrend, type TrendPoint } from "@/components/bodyweight-trend";
-import { dbDateToKey, keyToDbDate, todayKey } from "@/lib/dates";
+import { PageHeader } from "@/components/page-header";
+import { AvatarLink } from "@/components/avatar-link";
+import { dbDateToKey, formatDayHeading, keyToDbDate, todayKey } from "@/lib/dates";
 import { sumDayEntries } from "@/lib/macros";
 import type { UnitSystem } from "@/lib/units";
 
@@ -46,16 +48,13 @@ export default async function DashboardPage() {
     weightKg: w.weightKg,
   }));
 
-  const firstName = (user?.name || user?.email || "there").split(" ")[0];
-
   return (
     <>
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold tracking-tight">Hi, {firstName} 👋</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Here&apos;s your day at a glance.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow={formatDayHeading(today)}
+        title="Home"
+        action={<AvatarLink name={user?.name || user?.email} />}
+      />
 
       <div className="flex flex-col gap-4">
         {/* Today's macros against goals — the daily headline. */}
@@ -70,7 +69,7 @@ export default async function DashboardPage() {
               </span>
             </CardTitle>
             <Link
-              href="/track"
+              href="/today"
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               Track today <ArrowRight className="size-3" />
@@ -96,7 +95,7 @@ export default async function DashboardPage() {
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-sm">Bodyweight</CardTitle>
             <Link
-              href="/profile"
+              href="/me"
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               Log <ArrowRight className="size-3" />

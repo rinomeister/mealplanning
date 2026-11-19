@@ -22,7 +22,7 @@ export default async function SharedMealPage({
   const userId = await requireUserId();
   const { code: raw } = await params;
   const code = parseShareCode(decodeURIComponent(raw));
-  if (code && code !== raw) redirect(`/share/${code}`);
+  if (code && code !== raw) redirect(`/import/${code}`);
 
   const share = code
     ? await prisma.mealShare.findUnique({
@@ -47,7 +47,7 @@ export default async function SharedMealPage({
           title="This code doesn't work"
           description="It may have been mistyped, or the owner stopped sharing. Ask them for a fresh code."
           action={
-            <Link href="/share" className={buttonVariants({ variant: "outline" })}>
+            <Link href="/import" className={buttonVariants({ variant: "outline" })}>
               Enter another code
             </Link>
           }

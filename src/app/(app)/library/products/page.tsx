@@ -42,13 +42,13 @@ export default async function ProductsPage({
   return (
     <>
       <PageHeader
-        title="Food"
+        title="Library"
         description="Single foods you scan or type in, with macros per 100 g."
       />
       <FoodTabs active="products" />
       <ProductAddActions className="mb-3" />
 
-      <form action="/products" className="mb-3 flex gap-2">
+      <form action="/library/products" className="mb-3 flex gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input

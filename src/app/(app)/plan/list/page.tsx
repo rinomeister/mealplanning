@@ -138,7 +138,7 @@ export default async function ShoppingPage({
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
           <Link
             key={r}
-            href={`/shopping?${qs({ range: r })}`}
+            href={`/plan/list?${qs({ range: r })}`}
             className={cn(
               "inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-medium transition-colors",
               r === range
@@ -152,7 +152,7 @@ export default async function ShoppingPage({
       </div>
 
       {/* Start date */}
-      <form action="/shopping" className="mb-4 flex items-end gap-2">
+      <form action="/plan/list" className="mb-4 flex items-end gap-2">
         <input type="hidden" name="range" value={range} />
         {!byAisle && <input type="hidden" name="sort" value="az" />}
         <div className="flex flex-col gap-1">
@@ -180,8 +180,8 @@ export default async function ShoppingPage({
         {items.length > 0 && (
           <div className="flex shrink-0 rounded-lg border border-border p-0.5 text-xs font-medium">
             {[
-              { label: "Aisles", on: byAisle, href: `/shopping?${qs({ sort: "aisle" })}` },
-              { label: "A–Z", on: !byAisle, href: `/shopping?${qs({ sort: "az" })}` },
+              { label: "Aisles", on: byAisle, href: `/plan/list?${qs({ sort: "aisle" })}` },
+              { label: "A–Z", on: !byAisle, href: `/plan/list?${qs({ sort: "az" })}` },
             ].map((t) => (
               <Link
                 key={t.label}
