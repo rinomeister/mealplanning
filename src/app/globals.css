@@ -427,6 +427,15 @@ label {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   }
 
+  .card {
+    display: block;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-card);
+  }
+
   .chip {
     display: inline-flex;
     align-items: center;
