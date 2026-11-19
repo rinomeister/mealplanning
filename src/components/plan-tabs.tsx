@@ -1,30 +1,20 @@
 import Link from "next/link";
 
-const TABS = [
-  { id: "calendar", href: "/plan", label: "Week" },
-  { id: "shopping", href: "/plan/list", label: "List" },
-] as const;
-
-export type PlanTab = (typeof TABS)[number]["id"];
-
-/**
- * Week | List switch on the Plan tab. They stay separate routes — each keeps
- * its own query params and data fetch — but read as one screen.
- */
-export function PlanTabs({ active }: { active: PlanTab }) {
+/** Week | List switch at the top of Plan. List carries the items-left badge. */
+export function PlanTabs({ active, left }: { active: "week" | "list"; left: number }) {
   return (
     <div role="tablist" aria-label="Plan view" className="seg mb-4">
-      {TABS.map(({ id, href, label }) => (
-        <Link
-          key={id}
-          href={href}
-          role="tab"
-          aria-selected={id === active}
-          replace
-        >
-          {label}
-        </Link>
-      ))}
+      <Link href="/plan" role="tab" aria-selected={active === "week"} replace>
+        Week
+      </Link>
+      <Link href="/plan/list" role="tab" aria-selected={active === "list"} replace>
+        List
+        {left > 0 && (
+          <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-inv" aria-label={`${left} left to buy`}>
+            {left}
+          </span>
+        )}
+      </Link>
     </div>
   );
 }

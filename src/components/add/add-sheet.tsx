@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, Loader2, Plus, RotateCcw, ScanBarcode, Search, X, Zap } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { flowHref, parseDate, parseSlot } from "@/lib/add-flow";
 import { fmtG, fmtKcal } from "@/lib/macro-format";
@@ -85,7 +86,7 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
 
   // The day: the one Today is showing, else today on this phone.
   const today = localToday();
-  const date = (pathname === "/today" && parseDate(params.get("date"))) || today;
+  const date = ((pathname === "/today" || pathname === "/plan") && parseDate(params.get("date"))) || today;
   const eaten = date <= today;
 
   useEffect(() => {
@@ -147,7 +148,9 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
     <Sheet label={`Add to ${SLOT_LABELS[slot]}`} onClose={close} history={false}>
       <div className="flex flex-col gap-4 px-4 pb-4">
         <div className="flex items-center justify-between">
-          <h2 className="t-h2">Add to</h2>
+          <h2 className="t-h2">
+            Add to{date !== today && <span className="text-ink-3"> · {format(parseISO(date), "EEE d")}</span>}
+          </h2>
           <button type="button" onClick={close} className="grid size-11 place-items-center rounded-full bg-surface-2" aria-label="Close">
             <X className="size-5" />
           </button>

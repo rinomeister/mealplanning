@@ -76,7 +76,7 @@ const MACRO_SELECT = {
  */
 export async function copyEntries(
   userId: string,
-  where: { dateFrom: DateKey; dateTo: DateKey; slot?: SlotKey },
+  where: { dateFrom: DateKey; dateTo: DateKey; slot?: SlotKey; slots?: SlotKey[] },
   place: (sourceDate: DateKey) => DateKey,
 ): Promise<string[]> {
   const sources = await prisma.planEntry.findMany({
@@ -84,6 +84,7 @@ export async function copyEntries(
       userId,
       date: { gte: keyToDbDate(where.dateFrom), lte: keyToDbDate(where.dateTo) },
       ...(where.slot ? { slot: where.slot } : {}),
+      ...(where.slots ? { slot: { in: where.slots } } : {}),
       status: { not: "SKIPPED" },
     },
     orderBy: [{ date: "asc" }, { slot: "asc" }, { position: "asc" }],

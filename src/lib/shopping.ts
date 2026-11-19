@@ -6,10 +6,16 @@ export type ShoppingItem = {
   unit: string | null;
   totalQty: number | null;
   hasUnquantified: boolean;
+  /** Where it comes from: "Skyr oat bowl" ×4 servings, "Snack 2" ×1 entry. */
+  sources: { label: string; count: number }[];
 };
 
 type EntryForShopping = {
   servings: number;
+  /** Label for the "where from" line: the meal's name, or the slot for a product. */
+  source?: string;
+  /** How much this entry adds to the source count (servings for meals, 1 for products). */
+  sourceCount?: number;
   meal: {
     ingredients: { name: string; qty: number | null; unit: string | null }[];
   };
@@ -81,6 +87,7 @@ export function aggregateIngredients(
     total: number | null;
     hasUnquantified: boolean;
     rawUnit: string | null;
+    sources: Map<string, number>;
   };
   const map = new Map<string, Acc>();
 
@@ -106,8 +113,12 @@ export function aggregateIngredients(
           total: null,
           hasUnquantified: false,
           rawUnit: unit,
+          sources: new Map(),
         };
         map.set(key, acc);
+      }
+      if (entry.source) {
+        acc.sources.set(entry.source, (acc.sources.get(entry.source) ?? 0) + (entry.sourceCount ?? entry.servings));
       }
       if (inBase == null) {
         acc.hasUnquantified = true;
@@ -137,6 +148,7 @@ export function aggregateIngredients(
         unit,
         totalQty,
         hasUnquantified: acc.hasUnquantified,
+        sources: [...acc.sources].map(([label, count]) => ({ label, count })),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));

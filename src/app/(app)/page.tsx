@@ -10,7 +10,7 @@ import { addDaysKey, dbDateToKey, formatDayHeading, keyToDbDate } from "@/lib/da
 import { macrosOf, sumByStatus, type Targets } from "@/lib/macro-format";
 import { SLOTS, type SlotKey } from "@/lib/schemas";
 import { userNow } from "@/lib/user-time";
-import { countToBuy } from "@/lib/shopping-count";
+import { countLeftToBuy } from "@/lib/shopping-list";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { getAddSheetDataAction } from "@/app/(app)/today/actions";
 
@@ -76,7 +76,7 @@ export default async function HomePage() {
       select: { recordedAt: true, weightKg: true },
     }),
     getAddSheetDataAction(today, now.slot),
-    countToBuy(userId, today, addDaysKey(today, 6)),
+    countLeftToBuy(userId, today),
   ]);
 
   const targets: Targets = {

@@ -23,6 +23,9 @@ model User {
   targetSugar   Int?
   targetFiber   Int?
   units         Units   @default(METRIC)
+  // Shopping-list aisles in store order: [{ key, label }]. Null = the defaults.
+  // "Other" is never stored; it is always last.
+  aisleOrder    Json?
 
   meals            Meal[]
   tags             Tag[]
@@ -30,6 +33,7 @@ model User {
   bodyweights      BodyweightLog[]
   shoppingChecks   ShoppingCheck[]
   shoppingAisles   ShoppingAisle[]
+  shoppingExtras   ShoppingExtra[]
   favoriteProducts ProductFavorite[]
 
   createdAt DateTime @default(now())
@@ -259,6 +263,20 @@ model ShoppingAisle {
   aisle  String
 
   @@unique([userId, name])
+}
+
+// Something on the shopping list that is not in any plan ("dish soap").
+model ShoppingExtra {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  amount    String?
+  aisle     String?
+  checked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum Slot {

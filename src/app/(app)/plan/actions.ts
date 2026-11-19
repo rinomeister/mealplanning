@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
-import { copyWeekSchema, planEntrySchema, type CopyWeekInput } from "@/lib/schemas";
+import { SLOTS, copyWeekSchema, planEntrySchema, type CopyWeekInput, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, keyToDbDate } from "@/lib/dates";
 import { gramsPerServing, pickMacros } from "@/lib/macros";
 import { copyEntries, nextPosition } from "@/lib/entries";
@@ -137,8 +137,8 @@ export async function setEntryStatusAction(
  * left behind; copies arrive as planned, after anything already on those days.
  */
 export async function copyWeekAction(
-  input: CopyWeekInput,
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  input: CopyWeekInput & { replace?: boolean },
+): Promise<{ ok: true; count: number; ids: string[] } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const parsed = copyWeekSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
@@ -147,7 +147,16 @@ export async function copyWeekAction(
     return { ok: false, error: "Pick two different weeks." };
   }
 
-  const { length: count } = await copyEntries(
+  if (input.replace) {
+    await prisma.planEntry.deleteMany({
+      where: {
+        userId,
+        status: { not: "EATEN" },
+        date: { gte: keyToDbDate(toStart), lte: keyToDbDate(addDaysKey(toStart, 6)) },
+      },
+    });
+  }
+  const ids = await copyEntries(
     userId,
     { dateFrom: fromStart, dateTo: addDaysKey(fromStart, 6) },
     (sourceDate) =>
@@ -156,6 +165,7 @@ export async function copyWeekAction(
         differenceInCalendarDays(parseISO(sourceDate), parseISO(fromStart)),
       ),
   );
+  const count = ids.length;
   if (count === 0) {
     return { ok: false, error: "Nothing planned or logged that week." };
   }
@@ -164,5 +174,40 @@ export async function copyWeekAction(
   revalidatePath("/today");
   revalidatePath("/plan/list");
   revalidatePath("/");
-  return { ok: true, count };
+  return { ok: true, count, ids };
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Copy a day's slots onto other days. "Replace" first clears what's planned
+ * (not what's eaten) in those slots on the target days. Copies arrive as
+ * planned; the ids come back so "Add" can be undone.
+ */
+export async function copyDayToDatesAction(input: {
+  fromDate: string;
+  toDates: string[];
+  slots: string[];
+  replace: boolean;
+}): Promise<{ ok: true; count: number; ids: string[] } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const toDates = [...new Set(input.toDates)].filter((d) => DATE_RE.test(d) && d !== input.fromDate).slice(0, 62);
+  const slots = input.slots.filter((x): x is SlotKey => (SLOTS as readonly string[]).includes(x));
+  if (!DATE_RE.test(input.fromDate) || toDates.length === 0 || slots.length === 0) {
+    return { ok: false, error: "Pick at least one day and one slot." };
+  }
+  if (input.replace) {
+    await prisma.planEntry.deleteMany({
+      where: { userId, status: { not: "EATEN" }, slot: { in: slots }, date: { in: toDates.map(keyToDbDate) } },
+    });
+  }
+  const ids: string[] = [];
+  for (const to of toDates) {
+    ids.push(...(await copyEntries(userId, { dateFrom: input.fromDate, dateTo: input.fromDate, slots }, () => to)));
+  }
+  if (ids.length === 0) return { ok: false, error: "Nothing in those slots to copy." };
+  revalidatePath("/plan", "layout");
+  revalidatePath("/today");
+  revalidatePath("/");
+  return { ok: true, count: ids.length, ids };
 }
