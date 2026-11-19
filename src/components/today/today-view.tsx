@@ -12,7 +12,7 @@ import { MacroDot, MacroStrip, MacroSummaryFull } from "@/components/macro-ui";
 import { useToast } from "@/components/toast";
 import { Modal } from "@/components/ui/modal";
 import { SaveSlotMealForm } from "@/components/save-slot-meal";
-import { AddFoodTiles, type AddFoodData } from "@/components/day-tracker";
+import { AddFoodTiles } from "@/components/day-tracker";
 import { EntryRow, withAmount } from "@/components/today/entry-row";
 import { EntryMenu, SlotMenu } from "@/components/today/today-menus";
 import {
@@ -65,7 +65,6 @@ export function TodayView({
   entries,
   suggestions,
   yesterday,
-  addData,
 }: {
   date: string;
   /** Today or earlier: things logged here are eaten, not planned. */
@@ -78,7 +77,6 @@ export function TodayView({
   entries: DayEntry[];
   suggestions: Suggestion[];
   yesterday: Partial<Record<SlotKey, SlotPreview>>;
-  addData: AddFoodData;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -359,14 +357,7 @@ export function TodayView({
                   </div>
                 )}
                 {s.list.length === 0 && <p className="mb-3 mt-1 text-sm text-ink-3">Nothing here yet.</p>}
-                <AddFoodTiles
-                  date={date}
-                  slot={s.slot}
-                  slotLabel={SLOT_LABELS[s.slot]}
-                  eaten={logAsEaten}
-                  data={addData}
-                  slotCount={s.counted.length}
-                />
+                <AddFoodTiles date={date} slot={s.slot} />
               </section>
             ))
           ) : (

@@ -7,11 +7,8 @@ import { DayCopyMenu } from "@/components/day-copy-menu";
 import { TodayView, type SlotPreview } from "@/components/today/today-view";
 import { SLOTS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, keyToDbDate } from "@/lib/dates";
-import { gramsPerServing } from "@/lib/macros";
 import { macrosOf, sumByStatus, type Targets } from "@/lib/macro-format";
 import { toDayEntry } from "@/lib/day-entry";
-import { loadPickerProducts } from "@/lib/meal-form-products";
-import { loadMealUsage, loadProductUsage } from "@/lib/load-usage";
 import { remainingMacros, suggestMeals } from "@/lib/suggest";
 import { userNow } from "@/lib/user-time";
 import { format, parseISO } from "date-fns";
@@ -48,7 +45,7 @@ export default async function TodayPage({
   const isToday = date === now.today;
   const focusSlot = SLOTS.includes(add as SlotKey) ? (add as SlotKey) : null;
 
-  const [user, entries, yesterdayEntries, mealRecords, tags, products, productUsage, mealUsage] =
+  const [user, entries, yesterdayEntries, mealRecords] =
     await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
@@ -85,20 +82,8 @@ export default async function TodayPage({
           carbs: true,
           sugar: true,
           fiber: true,
-          favorite: true,
-          cookedGrams: true,
-          serves: true,
-          tags: { select: { tagId: true } },
         },
       }),
-      prisma.tag.findMany({
-        where: { userId },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, color: true },
-      }),
-      loadPickerProducts(),
-      loadProductUsage(userId),
-      loadMealUsage(userId),
     ]);
 
   const targets: Targets = {
@@ -134,15 +119,6 @@ export default async function TodayPage({
     p.kcal += macrosOf(e).kcal;
   }
 
-  const meals = mealRecords.map((m) => ({
-    id: m.id,
-    name: m.name,
-    kcal: m.kcal,
-    tagIds: m.tags.map((t) => t.tagId),
-    favorite: m.favorite,
-    gramsPerServing: gramsPerServing(m),
-  }));
-
   const navBtn = "grid size-11 shrink-0 place-items-center rounded-[14px] text-ink hover:bg-surface-2";
 
   return (
@@ -176,7 +152,6 @@ export default async function TodayPage({
         entries={entries.map(toDayEntry)}
         suggestions={suggestions}
         yesterday={yesterday}
-        addData={{ meals, tags, products, productUsage, mealUsage }}
       />
     </>
   );

@@ -4,6 +4,8 @@ import { InstallPrompt } from "@/components/install-prompt";
 import { ViewportSync } from "@/components/viewport-sync";
 import { ToastProvider } from "@/components/toast";
 import { KEYBOARD_BAR_SLOT } from "@/components/keyboard-bar";
+import { AddSheet } from "@/components/add/add-sheet";
+import { Suspense } from "react";
 
 export default async function AppLayout({
   children,
@@ -31,6 +33,9 @@ export default async function AppLayout({
                 {children}
               </div>
             </main>
+            <Suspense>
+              <AddSheet />
+            </Suspense>
           </ToastProvider>
         </div>
         {/* Bottom bars: a form's keyboard bar (portalled in), then the tabs. */}

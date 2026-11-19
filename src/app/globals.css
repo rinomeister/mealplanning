@@ -504,6 +504,11 @@ label {
 .fade-in { animation: fade-in 260ms ease both; }
 .fade-out { animation: fade-out 200ms ease both; }
 .toast-in { animation: toast-in 200ms ease both; }
+@keyframes scan-line {
+  0%, 100% { top: 15%; }
+  50% { top: 85%; }
+}
+.scan-line { top: 50%; animation: scan-line 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .sheet-in { animation: fade-in 200ms ease both !important; }
   .sheet-out { animation: fade-out 200ms ease both !important; }

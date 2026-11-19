@@ -28,7 +28,7 @@ import {
   pickMacros,
   sumDayEntries,
 } from "@/lib/macros";
-import { dbDateToKey, formatHuman, keyToDbDate, todayKey } from "@/lib/dates";
+import { addDaysKey, dbDateToKey, formatHuman, keyToDbDate, todayKey } from "@/lib/dates";
 import { copyEntries, nextPosition, refreshUpcomingEntries } from "@/lib/entries";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -469,4 +469,100 @@ export async function removeEntriesAction(ids: string[]): Promise<ActionResult> 
   await prisma.planEntry.deleteMany({ where: { id: { in: ids }, userId } });
   revalidateDay(todayKey());
   return { ok: true };
+}
+
+export type RecentItem = {
+  kind: "product" | "meal";
+  id: string;
+  name: string;
+  servings: number;
+  grams: number | null;
+  /** "1 scoop · 30 g", "250 g", "1 bowl". */
+  amount: string;
+  kcal: number;
+  protein: number;
+};
+
+const r1 = (n: number) => (Math.abs(n) < 10 ? Math.round(n * 10) / 10 : Math.round(n));
+
+/**
+ * What the Add sheet shows for a day+slot: the last few things logged (each
+ * once, with the amount used last time) and what yesterday's same slot held.
+ */
+export async function getAddSheetDataAction(
+  date: string,
+  slot: string,
+): Promise<{ recents: RecentItem[]; yesterday: { names: string[]; kcal: number } | null }> {
+  const userId = await requireUserId();
+  if (!DATE_RE.test(date) || !SLOT_SET.has(slot)) return { recents: [], yesterday: null };
+
+  const [rows, prev] = await Promise.all([
+    prisma.planEntry.findMany({
+      where: { userId, OR: [{ productId: { not: null } }, { mealId: { not: null } }] },
+      orderBy: { createdAt: "desc" },
+      take: 150,
+      include: {
+        product: { select: { name: true, servingGrams: true, portions: { select: { label: true, grams: true } } } },
+        meal: { select: { name: true, servingLabel: true } },
+      },
+    }),
+    prisma.planEntry.findMany({
+      where: {
+        userId,
+        date: keyToDbDate(addDaysKey(date, -1)),
+        slot: slot as SlotKey,
+        status: { not: "SKIPPED" },
+      },
+      include: { product: { select: { name: true } }, meal: { select: { name: true } } },
+    }),
+  ]);
+
+  const seen = new Set<string>();
+  const recents: RecentItem[] = [];
+  for (const e of rows) {
+    const key = e.productId ? `p${e.productId}` : `m${e.mealId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (e.product && e.productId) {
+      const g = e.grams ?? 0;
+      const portion = [
+        ...(e.product.servingGrams ? [{ label: "serving", grams: e.product.servingGrams }] : []),
+        ...e.product.portions,
+      ].find((p) => p.grams > 0 && Math.abs(g - p.grams) < 0.5);
+      recents.push({
+        kind: "product",
+        id: e.productId,
+        name: e.product.name,
+        servings: 1,
+        grams: g,
+        amount: portion ? `1 ${portion.label} · ${r1(g)} g` : `${r1(g)} g`,
+        kcal: ((e.kcal ?? 0) * g) / 100,
+        protein: ((e.protein ?? 0) * g) / 100,
+      });
+    } else if (e.meal && e.mealId) {
+      recents.push({
+        kind: "meal",
+        id: e.mealId,
+        name: e.meal.name,
+        servings: e.servings,
+        grams: e.grams,
+        amount:
+          e.grams != null
+            ? `${r1(e.grams)} g`
+            : `${r1(e.servings)} ${e.meal.servingLabel?.replace(/^1\s+/, "") ?? (e.servings === 1 ? "serving" : "servings")}`,
+        kcal: (e.kcal ?? 0) * e.servings,
+        protein: (e.protein ?? 0) * e.servings,
+      });
+    }
+    if (recents.length >= 5) break;
+  }
+
+  const yesterday =
+    prev.length === 0
+      ? null
+      : {
+          names: prev.map((e) => e.product?.name ?? e.meal?.name ?? e.label ?? "Quick add"),
+          kcal: sumDayEntries(prev).kcal,
+        };
+  return { recents, yesterday };
 }

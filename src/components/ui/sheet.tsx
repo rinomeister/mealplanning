@@ -21,7 +21,7 @@ let pendingBack: ReturnType<typeof setTimeout> | null = null;
  * opening pushes a history entry, popping it closes. Closing from the UI pops
  * that entry again.
  */
-function useBackToClose(onClose: () => void) {
+function useBackToClose(onClose: () => void, enabled: boolean) {
   const pushed = useRef(false);
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -29,6 +29,7 @@ function useBackToClose(onClose: () => void) {
   });
 
   useEffect(() => {
+    if (!enabled) return;
     if (pendingBack) {
       clearTimeout(pendingBack);
       pendingBack = null;
@@ -54,7 +55,7 @@ function useBackToClose(onClose: () => void) {
         }, 0);
       }
     };
-  }, []);
+  }, [enabled]);
 }
 
 /**
@@ -69,11 +70,14 @@ export function Sheet({
   onClose,
   children,
   className,
+  history = true,
 }: {
   label: string;
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
+  /** False when the caller already keeps the sheet in the URL (?add=). */
+  history?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   const [closing, setClosing] = useState(false);
@@ -86,7 +90,7 @@ export function Sheet({
     setTimeout(onClose, 200);
   }, [onClose]);
 
-  useBackToClose(onClose);
+  useBackToClose(onClose, history);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;

@@ -12,6 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { defaultSlot } from "@/lib/default-slot";
+import { FLOW_PATHS, flowHref } from "@/lib/add-flow";
+import { openAddSheet } from "@/components/add/add-sheet";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -55,12 +57,11 @@ function isActive(pathname: string, item: NavItem) {
   );
 }
 
-/** Where "+" goes: the add sheet for the slot that fits the time of day. */
-function addHref() {
-  return `/today?add=${defaultSlot()}`;
-}
-function scanHref() {
-  return `/scan?slot=${defaultSlot()}`;
+/** "+" opens the Add sheet over the current page, for the slot that fits now. */
+function useOpenAdd() {
+  const router = useRouter();
+  const pathname = usePathname();
+  return () => openAddSheet(router, pathname, new URLSearchParams(window.location.search), defaultSlot());
 }
 
 /**
@@ -69,6 +70,7 @@ function scanHref() {
  */
 function AddButton() {
   const router = useRouter();
+  const openAdd = useOpenAdd();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const longPressed = useRef(false);
 
@@ -78,7 +80,7 @@ function AddButton() {
     timer.current = setTimeout(() => {
       longPressed.current = true;
       navigator.vibrate?.(10);
-      router.push(scanHref());
+      router.push(flowHref("scan", defaultSlot()));
     }, 500);
   }
   function cancel() {
@@ -97,7 +99,7 @@ function AddButton() {
       onContextMenu={(e) => e.preventDefault()}
       onClick={() => {
         if (longPressed.current) return;
-        router.push(addHref());
+        openAdd();
       }}
     >
       <Plus className="size-7" strokeWidth={2.25} />
@@ -125,6 +127,8 @@ function Tab({ item, active }: { item: NavItem; active: boolean }) {
 /** Phone/tablet bottom bar. Last child of the shell's flex column, not fixed. */
 export function TabBar() {
   const pathname = usePathname();
+  // Full-screen add flows have their own bottom bars.
+  if (FLOW_PATHS.includes(pathname)) return null;
   return (
     <nav
       aria-label="Main"
@@ -146,7 +150,7 @@ export function TabBar() {
 /** Desktop (≥900 px) left rail: Add food, the four sections, Me at the bottom. */
 export function Rail() {
   const pathname = usePathname();
-  const router = useRouter();
+  const openAdd = useOpenAdd();
 
   // "A" opens Add from anywhere on desktop, unless you're typing.
   useEffect(() => {
@@ -157,11 +161,11 @@ export function Rail() {
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (document.querySelector('[aria-modal="true"]')) return;
       e.preventDefault();
-      router.push(addHref());
+      openAdd();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [router]);
+  });
 
   const meActive = matches(pathname, "/me");
 
@@ -169,7 +173,7 @@ export function Rail() {
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-bg px-4 pb-6 pt-6 desk:flex">
       <button
         type="button"
-        onClick={() => router.push(addHref())}
+        onClick={openAdd}
         className="press mb-6 flex h-[52px] items-center gap-2.5 rounded-btn bg-accent px-5 font-semibold text-on-accent"
       >
         <Plus className="size-5" strokeWidth={2.25} />

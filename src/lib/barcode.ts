@@ -10,6 +10,8 @@ export type BarcodeLookupResult =
   | {
       found: true;
       code: string;
+      /** Our product row's id, when the barcode is already in our database. */
+      productId?: string;
       name: string;
       brand: string | null;
       /** Free-text serving size from the product label, e.g. "30 g". */
@@ -28,6 +30,7 @@ export type BarcodeLookupResult =
 
 /** Map a stored Product row to the lookup result shape (our DB is authoritative). */
 export function productRowToResult(row: {
+  id?: string;
   barcode: string;
   name: string;
   brand: string | null;
@@ -45,6 +48,7 @@ export function productRowToResult(row: {
   return {
     found: true,
     code: row.barcode,
+    productId: row.id,
     name: row.name,
     brand: row.brand,
     servingLabel: row.servingLabel,
