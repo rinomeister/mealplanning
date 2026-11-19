@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { Loader2, MoreHorizontal, Plus } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDaysKey } from "@/lib/dates";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
@@ -46,11 +47,23 @@ export function PlanMenu({ date, today, weekStart }: { date: string; today: stri
   );
 }
 
-function CopySheet({ date, today, weekStart, onClose }: { date: string; today: string; weekStart: string; onClose: () => void }) {
+function CopySheet({
+  date,
+  today,
+  weekStart,
+  initialTargets = [],
+  onClose,
+}: {
+  date: string;
+  today: string;
+  weekStart: string;
+  initialTargets?: string[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [mode, setMode] = useState<"day" | "week">("day");
-  const [targets, setTargets] = useState<Set<string>>(new Set());
+  const [targets, setTargets] = useState<Set<string>>(new Set(initialTargets));
   const [slots, setSlots] = useState<Set<SlotKey>>(new Set(SLOTS));
   const [replace, setReplace] = useState(false);
   const [weekChoice, setWeekChoice] = useState<"next" | "this">("next");
@@ -219,5 +232,74 @@ function CopySheet({ date, today, weekStart, onClose }: { date: string; today: s
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * A week with nothing in it. Copying beats starting from scratch: last week,
+ * or one good day across the whole week.
+ */
+export function PlanEmptyWeek({
+  weekStart,
+  today,
+  lastWeekHas,
+  sourceDate,
+}: {
+  weekStart: string;
+  today: string;
+  lastWeekHas: boolean;
+  /** The latest day with anything on it, to copy across the week. */
+  sourceDate: string | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, start] = useTransition();
+  const [copyDay, setCopyDay] = useState(false);
+  const week = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
+
+  function copyLastWeek() {
+    start(async () => {
+      const res = await copyWeekAction({ fromStart: addDaysKey(weekStart, -7), toStart: weekStart, replace: false });
+      if (!res.ok) {
+        toast.show({ message: res.error, tone: "error" });
+        return;
+      }
+      router.refresh();
+      toast.undoable({
+        message: `Copied ${res.count} item${res.count === 1 ? "" : "s"} from last week`,
+        commit: () => {},
+        undo: () => void removeEntriesAction(res.ids).then(() => router.refresh()),
+      });
+    });
+  }
+
+  return (
+    <section className="card flex flex-col items-center gap-3 px-4 pb-4 pt-7 text-center" aria-label="Nothing planned this week">
+      <span className="grid size-12 place-items-center rounded-[14px] bg-surface-2 text-ink-2">
+        <CalendarDays className="size-5" />
+      </span>
+      <div>
+        <p className="text-[17px] font-semibold">Nothing planned this week</p>
+        <p className="mt-1 text-sm text-ink-2">Plan ahead and the shopping list builds itself.</p>
+      </div>
+      <div className="mt-1 flex w-full flex-col gap-2">
+        {lastWeekHas && (
+          <button type="button" disabled={busy} onClick={copyLastWeek} className="press flex h-12 items-center justify-center gap-2 rounded-btn bg-ink font-semibold text-inv">
+            {busy && <Loader2 className="size-4 animate-spin" />} Copy last week
+          </button>
+        )}
+        {sourceDate && (
+          <button type="button" onClick={() => setCopyDay(true)} className="press flex h-12 items-center justify-center rounded-btn bg-surface-2 font-semibold">
+            Copy one day to the whole week
+          </button>
+        )}
+        <Link href={`/plan?date=${weekStart}&add=BREAKFAST`} className="flex h-12 items-center justify-center font-semibold">
+          Plan Monday from scratch
+        </Link>
+      </div>
+      {copyDay && sourceDate && (
+        <CopySheet date={sourceDate} today={today} weekStart={weekStart} initialTargets={week.filter((d) => d !== sourceDate)} onClose={() => setCopyDay(false)} />
+      )}
+    </section>
   );
 }

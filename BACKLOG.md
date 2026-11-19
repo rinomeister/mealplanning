@@ -18,8 +18,8 @@ anywhere in the list.
 
 ## Insight and motivation
 
-7. **Weekly averages:** average calories and macros against target, days the
-   protein goal was hit, and a streak.
+7. **Streak:** consecutive days the protein goal was hit (averages and hit days
+   are on Progress now).
 8. **Adaptive TDEE:** estimate real maintenance calories from logged intake
    plus the bodyweight trend over 2–3 weeks. Entries now keep their own
    macros, so past days are reliable to compute from.
@@ -41,6 +41,7 @@ anywhere in the list.
 
 ## Done
 
+- Progress screen: 7/30/90-day protein chart, averages vs target, bodyweight trend (Nov 2026)
 - Entries keep their own macros; edits only affect today onward (Nov 2026)
 - Quick add (Nov 2026)
 - Copy a whole day / "Same as yesterday" (Nov 2026)

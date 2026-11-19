@@ -21,7 +21,8 @@ export const FLOW_PATHS = Object.values(PATHS);
 
 /** Full-screen pages: no tab bar (they bring their own top and bottom bars). */
 export function isFlowPath(pathname: string): boolean {
-  return FLOW_PATHS.includes(pathname) || pathname.startsWith("/products/") || pathname.startsWith("/meals/") || pathname.startsWith("/plan/list/");
+  return FLOW_PATHS.includes(pathname) || pathname.startsWith("/products/") || pathname.startsWith("/meals/") || pathname.startsWith("/plan/list/") ||
+    pathname.startsWith("/me/edit/") || pathname === "/me/weight" || pathname === "/me/scanner";
 }
 
 export function parseSlot(raw: string | undefined | null): SlotKey | null {

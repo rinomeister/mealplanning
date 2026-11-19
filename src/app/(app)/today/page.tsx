@@ -129,18 +129,19 @@ export default async function TodayPage({
         </Link>
         <div className="min-w-0 text-center">
           <h1 className="t-title leading-none">{dayTitle(date, now.today)}</h1>
-          <p className="mt-1 text-[13px] text-ink-2">{format(parseISO(date), "EEE d MMM")}</p>
+          {dayTitle(date, now.today) !== format(parseISO(date), "EEE d MMM") && (
+            <p className="mt-1 text-[13px] text-ink-2">{format(parseISO(date), "EEE d MMM")}</p>
+          )}
         </div>
         <Link href={`/today?date=${addDaysKey(date, 1)}`} className={navBtn} aria-label="Next day">
           <ChevronRight className="size-6" />
         </Link>
         <div className="ml-auto flex items-center gap-2">
-          {entries.length > 0 && <DayCopyMenu date={date} isEmpty={false} />}
+          <DayCopyMenu date={date} />
           <AvatarLink name={user?.name || user?.email} />
         </div>
       </header>
 
-      {entries.length === 0 && <DayCopyMenu date={date} isEmpty />}
 
       <TodayView
         key={date}

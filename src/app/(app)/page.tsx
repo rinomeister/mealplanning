@@ -141,51 +141,65 @@ export default async function HomePage() {
         <WeekCard days={days} targets={targets} />
 
         <div className="grid grid-cols-2 gap-3">
-          <Link href="/me" className="card press flex min-w-0 flex-col gap-1.5 p-3.5">
-            <span className="text-xs font-semibold text-ink-3">Bodyweight</span>
-            {latest ? (
-              <>
-                <span>
-                  <span className="num text-2xl font-semibold">{kgToDisplay(latest.weightKg, units).toFixed(1)}</span>
-                  <span className="text-sm text-ink-3"> {weightLabel(units)}</span>
-                </span>
-                <Sparkline values={weights.map((w) => w.weightKg)} />
-                {first && weights.length > 1 && (
-                  <span className="text-xs text-ink-3">
-                    {formatDelta(kgToDisplay(latest.weightKg, units) - kgToDisplay(first.weightKg, units))}{" "}
-                    {weightLabel(units)} · {Math.max(1, daysBetween(first.recordedAt, latest.recordedAt))} days
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-sm text-ink-2">Log your weight to see the trend.</span>
-            )}
-          </Link>
-
-          <Link href="/plan" className="card press flex min-w-0 flex-col gap-2 p-3.5">
-            <span className="text-xs font-semibold text-ink-3">Plan &amp; list</span>
-            <span className="text-sm">
-              <b>Tomorrow</b>
-              <br />
-              <span className="text-ink-3">
-                {tomorrowSlots.length} of {SLOTS.length} slots planned
+          {latest ? (
+            <Link href="/me/progress" className="card press flex min-w-0 flex-col gap-1.5 p-3.5">
+              <span className="text-xs font-semibold text-ink-3">Bodyweight</span>
+              <span>
+                <span className="num text-2xl font-semibold">{kgToDisplay(latest.weightKg, units).toFixed(1)}</span>
+                <span className="text-sm text-ink-3"> {weightLabel(units)}</span>
               </span>
-            </span>
-            <span className="flex gap-[3px]" aria-hidden>
-              {SLOTS.map((s) => (
-                <i
-                  key={s}
-                  className="h-1.5 flex-1 rounded-full"
-                  style={{
-                    background: tomorrowSlots.some((t) => (t.slot as SlotKey) === s) ? "var(--ink)" : "var(--track)",
-                  }}
-                />
-              ))}
-            </span>
-            <span className="text-sm">
-              <b className="num">{toBuy}</b> <span className="text-ink-3">to buy</span>
-            </span>
-          </Link>
+              <Sparkline values={weights.map((w) => w.weightKg)} />
+              {first && weights.length > 1 && (
+                <span className="text-xs text-ink-3">
+                  {formatDelta(kgToDisplay(latest.weightKg, units) - kgToDisplay(first.weightKg, units))}{" "}
+                  {weightLabel(units)} · {Math.max(1, daysBetween(first.recordedAt, latest.recordedAt))} days
+                </span>
+              )}
+            </Link>
+          ) : (
+            <div className="card flex min-w-0 flex-col gap-2 p-3.5">
+              <span className="text-xs font-semibold text-ink-3">Bodyweight</span>
+              <span className="text-sm text-ink-2">No weigh-ins yet</span>
+              <Link href="/me/weight?from=/" className="press mt-auto flex h-11 items-center justify-center rounded-btn bg-surface-2 font-semibold">
+                Log weight
+              </Link>
+            </div>
+          )}
+
+          {tomorrowSlots.length === 0 && toBuy === 0 ? (
+            <div className="card flex min-w-0 flex-col gap-2 p-3.5">
+              <span className="text-xs font-semibold text-ink-3">Plan &amp; list</span>
+              <span className="text-sm text-ink-2">Nothing planned</span>
+              <Link href={`/plan?date=${tomorrow}`} className="press mt-auto flex h-11 items-center justify-center rounded-btn bg-surface-2 font-semibold">
+                Plan a day
+              </Link>
+            </div>
+          ) : (
+            <Link href="/plan" className="card press flex min-w-0 flex-col gap-2 p-3.5">
+              <span className="text-xs font-semibold text-ink-3">Plan &amp; list</span>
+              <span className="text-sm">
+                <b>Tomorrow</b>
+                <br />
+                <span className="text-ink-3">
+                  {tomorrowSlots.length} of {SLOTS.length} slots planned
+                </span>
+              </span>
+              <span className="flex gap-[3px]" aria-hidden>
+                {SLOTS.map((s) => (
+                  <i
+                    key={s}
+                    className="h-1.5 flex-1 rounded-full"
+                    style={{
+                      background: tomorrowSlots.some((t) => (t.slot as SlotKey) === s) ? "var(--ink)" : "var(--track)",
+                    }}
+                  />
+                ))}
+              </span>
+              <span className="text-sm">
+                <b className="num">{toBuy}</b> <span className="text-ink-3">to buy</span>
+              </span>
+            </Link>
+          )}
         </div>
       </div>
     </>

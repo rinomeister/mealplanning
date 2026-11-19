@@ -303,7 +303,27 @@ export function ProductSearch({
             <h2 className="t-cap mb-1">
               {tab === "favorites" ? "Favorites" : tab === "recent" ? "Recent" : "My products"} · {mine.length}
             </h2>
-            {mine.length === 0 ? (
+            {mine.length === 0 && q && tab === "all" && off.state === "done" && off.q === q && off.hits.length === 0 ? (
+              // Nothing anywhere: offer the other ways in.
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <span className="grid size-12 place-items-center rounded-[14px] bg-surface-2 text-ink-2">
+                  <Search className="size-5" />
+                </span>
+                <p className="mt-1 text-[17px] font-semibold">No match for “{q}”</p>
+                <p className="text-sm text-ink-2">Nothing in your products or Open Food Facts.</p>
+                <div className="mt-3 flex w-full flex-col gap-2">
+                  <Link href={flowHref("scan", slot, date)} className="press flex h-12 items-center justify-center rounded-btn bg-ink font-semibold text-inv">
+                    Scan the barcode
+                  </Link>
+                  <button type="button" onClick={() => setCreating(true)} className="press flex h-12 items-center justify-center rounded-btn bg-surface-2 font-semibold">
+                    Create “{q}” manually
+                  </button>
+                  <Link href={flowHref("quick", slot, date)} className="flex h-12 items-center justify-center font-semibold">
+                    Quick add macros instead
+                  </Link>
+                </div>
+              </div>
+            ) : mine.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink-3">
                 {q ? `None of your products match “${q}”.` : tab === "favorites" ? "Star products to see them here." : "Nothing here yet."}
               </p>

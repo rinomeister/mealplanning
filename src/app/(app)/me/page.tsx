@@ -1,79 +1,186 @@
+import Link from "next/link";
+import { ChevronRight, Download, LogOut } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
-import { LogOut } from "lucide-react";
-import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { userNow } from "@/lib/user-time";
+import { loadProgress } from "@/lib/progress";
+import { MACROS_UI, fmtKcal } from "@/lib/macro-format";
+import { PROFILE_FIELDS, pcfKcal } from "@/lib/profile-fields";
+import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
+import { BackButton } from "@/components/back-button";
+import { MacroBadge } from "@/components/macro-ui";
 import { ThemeSetting } from "@/components/theme";
+import { ScannerEngineName, UnitsSetting, WelcomeCard } from "@/components/me/me-client";
 import { signOutAction } from "../actions";
-import { ProfileForm, type ProfileInitial } from "@/components/profile-form";
-import { ScannerSettings } from "@/components/scanner-settings";
-import { BodyweightPanel, type WeightLog } from "@/components/bodyweight-panel";
-import { dbDateToKey, todayKey } from "@/lib/dates";
-import type { UnitSystem } from "@/lib/units";
 
-function numToStr(n: number | null): string {
-  return n == null ? "" : n.toString();
-}
+const row = "flex min-h-[52px] items-center gap-3 px-4";
 
-export default async function ProfilePage() {
+export default async function MePage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const userId = await requireUserId();
-
-  const [user, weights] = await Promise.all([
+  const now = await userNow();
+  const [user, progress, latest] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-    prisma.bodyweightLog.findMany({
-      where: { userId },
-      orderBy: { recordedAt: "desc" },
-      take: 200,
-    }),
+    loadProgress(userId, now.today, 7),
+    prisma.bodyweightLog.findFirst({ where: { userId }, orderBy: { recordedAt: "desc" }, select: { weightKg: true } }),
   ]);
+  const units = user.units as UnitSystem;
 
-  const profileInitial: ProfileInitial = {
-    name: user.name ?? "",
-    heightCm: numToStr(user.heightCm),
-    targetKcal: numToStr(user.targetKcal),
-    targetProtein: numToStr(user.targetProtein),
-    targetFat: numToStr(user.targetFat),
-    targetCarbs: numToStr(user.targetCarbs),
-    targetSugar: numToStr(user.targetSugar),
-    targetFiber: numToStr(user.targetFiber),
-    units: user.units as UnitSystem,
+  // Last 6 full days (today is still going).
+  const past = progress.days.filter((d) => !d.today);
+  const hit = user.targetProtein != null ? past.filter((d) => d.eaten.protein >= user.targetProtein!).length : null;
+  const maxP = Math.max(user.targetProtein ?? 0, ...past.map((d) => d.eaten.protein), 1);
+  const summary = [
+    hit != null && past.some((d) => d.logged) ? `Protein target hit ${hit} of the last ${past.length} days` : "Your week, averages and bodyweight",
+    latest ? `${kgToDisplay(latest.weightKg, units).toFixed(1)} ${weightLabel(units)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const t = {
+    kcal: user.targetKcal,
+    protein: user.targetProtein,
+    carbs: user.targetCarbs,
+    fat: user.targetFat,
+    sugar: user.targetSugar,
+    fiber: user.targetFiber,
   };
-
-  const logs: WeightLog[] = weights.map((w) => ({
-    id: w.id,
-    recordedAt: dbDateToKey(w.recordedAt),
-    weightKg: w.weightKg,
-    note: w.note,
-  }));
+  const pcf = t.protein != null && t.carbs != null && t.fat != null ? pcfKcal(t.protein, t.carbs, t.fat) : null;
+  const pcfPct = pcf != null && t.kcal ? Math.round((Math.abs(pcf - t.kcal) / t.kcal) * 100) : null;
 
   return (
     <>
-      <PageHeader title="Me & settings" />
-      <div className="flex flex-col gap-4">
-        <ProfileForm initial={profileInitial} />
-        <BodyweightPanel
-          logs={logs}
-          units={user.units as UnitSystem}
-          today={todayKey()}
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-            <CardDescription>Applies to this device only.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ThemeSetting />
-          </CardContent>
-        </Card>
-        <ScannerSettings />
-        <form action={signOutAction}>
-          <p className="mb-2 truncate text-sm text-ink-3">Signed in as {user.email}</p>
-          <Button type="submit" variant="outline" className="w-full">
-            <LogOut /> Sign out
-          </Button>
-        </form>
+      <div className="mb-4 flex items-center gap-1">
+        <BackButton fallback="/" />
+        <h1 className="t-title">Me</h1>
       </div>
+
+      <div className="flex flex-col gap-3">
+        {welcome && <WelcomeCard />}
+
+        <Link href="/me/progress" className="card press flex items-center gap-3 p-4">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold">Progress</span>
+            <span className="block text-sm text-ink-2">{summary}</span>
+          </span>
+          <span className="flex h-8 items-end gap-[3px]" aria-hidden>
+            {past.map((d) => (
+              <i
+                key={d.date}
+                className="block w-[7px] rounded-[2px]"
+                style={{
+                  height: `${Math.max(8, (d.eaten.protein / maxP) * 100)}%`,
+                  background: d.logged ? "var(--pro)" : "var(--track)",
+                  opacity: d.logged && user.targetProtein != null && d.eaten.protein < user.targetProtein ? 0.45 : 1,
+                }}
+              />
+            ))}
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-ink-3" />
+        </Link>
+
+        <h2 className="t-cap mt-3">Daily targets</h2>
+        <ul className="card divide-y divide-line overflow-hidden">
+          <li>
+            <Link href="/me/edit/kcal" className={row}>
+              <span className="flex-1">Calories</span>
+              <Val v={t.kcal != null ? `${fmtKcal(t.kcal)} kcal` : null} />
+            </Link>
+          </li>
+          {MACROS_UI.map((m) => (
+            <li key={m.key}>
+              <Link href={`/me/edit/${m.key}`} className={row}>
+                <MacroBadge macro={m.key} />
+                <span className="flex-1">{PROFILE_FIELDS[m.key].label}</span>
+                <Val v={t[m.key] != null ? `${t[m.key]} g` : null} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        {pcf != null && t.kcal != null && (
+          <p className="-mt-1 px-1 text-[13px] text-ink-3">
+            P/C/F add up to {fmtKcal(pcf)} kcal
+            {pcfPct! <= 2
+              ? ` · within ${pcfPct}% of your calorie target.`
+              : ` · ${fmtKcal(Math.abs(pcf - t.kcal))} kcal ${pcf > t.kcal ? "over" : "under"} your calorie target.`}
+          </p>
+        )}
+
+        <h2 className="t-cap mt-3">You</h2>
+        <ul className="card divide-y divide-line overflow-hidden">
+          <li>
+            <Link href="/me/edit/name" className={row}>
+              <span className="flex-1">Name</span>
+              <Val v={user.name} />
+            </Link>
+          </li>
+          <li>
+            <Link href="/me/edit/height" className={row}>
+              <span className="flex-1">Height</span>
+              <Val v={user.heightCm != null ? `${user.heightCm} cm` : null} />
+            </Link>
+          </li>
+          <li>
+            <Link href="/me/progress" className={row}>
+              <span className="flex-1">Bodyweight</span>
+              <Val v={latest ? `${kgToDisplay(latest.weightKg, units).toFixed(1)} ${weightLabel(units)}` : "Log it"} />
+            </Link>
+          </li>
+        </ul>
+
+        <h2 className="t-cap mt-3">App</h2>
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-3">
+            <span className="w-16 shrink-0">Units</span>
+            <div className="min-w-0 flex-1">
+              <UnitsSetting units={units} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-16 shrink-0">Theme</span>
+            <div className="min-w-0 flex-1">
+              <ThemeSetting />
+            </div>
+          </div>
+          <p className="px-1 text-[13px] text-ink-3">Theme applies to this device only.</p>
+        </div>
+        <ul className="card divide-y divide-line overflow-hidden">
+          <li>
+            <Link href="/me/scanner" className={row}>
+              <span className="flex-1">Scanner engine</span>
+              <span className="text-sm text-ink-3">
+                <ScannerEngineName />
+              </span>
+              <ChevronRight className="size-5 text-ink-3" />
+            </Link>
+          </li>
+          <li>
+            <Link href="/import" className={row}>
+              <Download className="size-5 text-ink-2" />
+              <span className="flex-1">Import shared meal</span>
+              <ChevronRight className="size-5 text-ink-3" />
+            </Link>
+          </li>
+          <li>
+            <form action={signOutAction}>
+              <button type="submit" className={`${row} w-full text-left text-bad`}>
+                <LogOut className="size-5" />
+                <span className="flex-1 font-semibold">Sign out</span>
+              </button>
+            </form>
+          </li>
+        </ul>
+        <p className="truncate px-1 text-[13px] text-ink-3">Signed in as {user.email}</p>
+      </div>
+    </>
+  );
+}
+
+function Val({ v }: { v: string | null }) {
+  return (
+    <>
+      <span className={v ? "num font-semibold" : "text-ink-3"}>{v ?? "Not set"}</span>
+      <ChevronRight className="-mr-1 size-5 shrink-0 text-ink-3" />
     </>
   );
 }

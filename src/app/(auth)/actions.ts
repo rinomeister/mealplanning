@@ -78,10 +78,12 @@ export async function registerAction(
   });
 
   try {
+    // New accounts land on Me to set targets, unless a share link brought them.
+    const callbackUrl = formData.get("callbackUrl");
     await signIn("credentials", {
       email,
       password,
-      redirectTo: safeRedirect(formData.get("callbackUrl")),
+      redirectTo: callbackUrl ? safeRedirect(callbackUrl) : "/me?welcome=1",
     });
   } catch (error) {
     if (error instanceof AuthError) {

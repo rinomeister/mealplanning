@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import { Check, ChevronDown, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Loader2, MoreHorizontal, Plus, Soup } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { formatHuman } from "@/lib/dates";
@@ -21,6 +21,7 @@ import {
   addPlanEntryAction,
 } from "@/app/(app)/plan/actions";
 import {
+  copyDayAction,
   copyEntryToDateAction,
   copySlotFromDateAction,
   markSlotEatenAction,
@@ -80,6 +81,7 @@ export function TodayView({
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
+  const [copying, startCopy] = useTransition();
   const [optimistic, apply] = useOptimistic(entries, reduce);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -177,6 +179,22 @@ export function TodayView({
       }
       toast.undoable({
         message: `Added ${res.count} from yesterday`,
+        commit: () => {},
+        undo: () => startTransition(async () => void (await removeEntriesAction(res.ids))),
+      });
+    });
+  }
+
+  /** Empty day: bring all of yesterday back (as planned), with Undo. */
+  function copyYesterday() {
+    startCopy(async () => {
+      const res = await copyDayAction({ fromDate: yesterdayKey(date), toDate: date });
+      if (!res.ok) {
+        toast.show({ message: res.error, tone: "error" });
+        return;
+      }
+      toast.undoable({
+        message: `Copied ${res.count} from yesterday`,
         commit: () => {},
         undo: () => startTransition(async () => void (await removeEntriesAction(res.ids))),
       });
@@ -298,6 +316,15 @@ export function TodayView({
         </section>
       )}
 
+      {visible.length === 0 ? (
+        <EmptyDay
+          date={date}
+          slot={currentSlot ?? "BREAKFAST"}
+          yesterdayKcal={Object.values(yesterday).reduce((sum, p) => sum + (p?.kcal ?? 0), 0)}
+          copying={copying}
+          onCopyYesterday={copyYesterday}
+        />
+      ) : (
       <div className="mt-5 flex flex-col gap-3">
         {groups.map((group) =>
           group[0].open ? (
@@ -400,6 +427,7 @@ export function TodayView({
           ),
         )}
       </div>
+      )}
 
       {menuEntry && (
         <EntryMenu
@@ -499,5 +527,48 @@ function SummaryWithStrip({
         <MacroSummaryFull {...data} />
       </div>
     </>
+  );
+}
+
+function EmptyDay({
+  date,
+  slot,
+  yesterdayKcal,
+  copying,
+  onCopyYesterday,
+}: {
+  date: string;
+  slot: SlotKey;
+  yesterdayKcal: number;
+  copying: boolean;
+  onCopyYesterday: () => void;
+}) {
+  return (
+    <section className="card mt-5 flex flex-col items-center gap-3 px-4 pb-4 pt-6 text-center" aria-label="Nothing logged yet">
+      <span className="grid size-12 place-items-center rounded-[14px] bg-surface-2 text-ink-2">
+        <Soup className="size-5" />
+      </span>
+      <div>
+        <p className="text-[17px] font-semibold">Nothing logged yet</p>
+        <p className="mt-1 text-sm text-ink-2">
+          Start with {SLOT_LABELS[slot].toLowerCase()}
+          {yesterdayKcal > 0 ? ", or bring back yesterday in one tap." : "."}
+        </p>
+      </div>
+      {yesterdayKcal > 0 && (
+        <button
+          type="button"
+          onClick={onCopyYesterday}
+          disabled={copying}
+          className="press flex h-12 w-full items-center justify-center gap-2 rounded-btn bg-ink font-semibold text-inv"
+        >
+          {copying && <Loader2 className="size-4 animate-spin" />}
+          Copy yesterday · {fmtKcal(yesterdayKcal)} kcal
+        </button>
+      )}
+      <div className="w-full">
+        <AddFoodTiles date={date} slot={slot} />
+      </div>
+    </section>
   );
 }

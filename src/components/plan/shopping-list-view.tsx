@@ -4,13 +4,12 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { Calendar, CalendarRange, Check, Eraser, Home, ListOrdered, MoreHorizontal, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Calendar, CalendarRange, Check, CircleCheck, ListChecks, Eraser, Home, ListOrdered, MoreHorizontal, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDaysKey } from "@/lib/dates";
 import { useLongPress } from "@/lib/use-long-press";
 import type { ListItem, ShoppingList } from "@/lib/shopping-list";
 import { Sheet, SheetItem } from "@/components/ui/sheet";
-import { EmptyState } from "@/components/empty-state";
 import { useToast } from "@/components/toast";
 import {
   clearCheckedAction,
@@ -70,6 +69,15 @@ export function ShoppingListView({
     });
   }
 
+  function clearChecked() {
+    start(async () => {
+      await clearCheckedAction();
+      setChecked(new Set());
+      toast.show({ message: "Cleared the checked items" });
+      router.refresh();
+    });
+  }
+
   const setRange = (s: string, e: string) => {
     setMenu(null);
     router.replace(`/plan/list?start=${s}&end=${e}`, { scroll: false });
@@ -106,12 +114,37 @@ export function ShoppingListView({
       )}
 
       {list.groups.length === 0 ? (
-        <EmptyState
-          title="Nothing to buy"
-          description="Plan some meals or products for these days, or add an item yourself with +."
-        />
+        <section className="card flex flex-col items-center gap-3 px-4 pb-4 pt-7 text-center" aria-label="Nothing to buy">
+          <span className="grid size-12 place-items-center rounded-[14px] bg-surface-2 text-ink-2">
+            <ListChecks className="size-5" />
+          </span>
+          <div>
+            <p className="text-[17px] font-semibold">Nothing to buy</p>
+            <p className="mt-1 text-sm text-ink-2">Planned meals for these days show up here, merged and sorted by aisle.</p>
+          </div>
+          <div className="mt-1 flex w-full flex-col gap-2">
+            <Link href={`/plan?date=${range.start}`} className="press flex h-12 items-center justify-center rounded-btn bg-ink font-semibold text-inv">
+              Plan these days
+            </Link>
+            <Link href="/plan/list/add" className="press flex h-12 items-center justify-center rounded-btn bg-surface-2 font-semibold">
+              Add an item myself
+            </Link>
+          </div>
+        </section>
       ) : (
         <div className="flex flex-col gap-4 pb-6">
+          {left === 0 && (
+            <div className="card flex items-center gap-3 p-4" role="status">
+              <CircleCheck className="size-6 shrink-0 text-good" />
+              <span className="min-w-0 flex-1">
+                <b className="block">All bought</b>
+                <span className="text-sm text-ink-2">Everything for these days is ticked off.</span>
+              </span>
+              <button type="button" onClick={clearChecked} className="press h-11 shrink-0 rounded-btn bg-surface-2 px-3 text-sm font-semibold">
+                Clear checked
+              </button>
+            </div>
+          )}
           {list.groups.map((g) => (
             <section key={g.aisle.key} aria-label={g.aisle.label}>
               <h2 className="t-cap mb-1.5">{g.aisle.label}</h2>
@@ -193,11 +226,7 @@ export function ShoppingListView({
               label={`Clear ${total - left} checked`}
               onClick={() => {
                 setMenu(null);
-                start(async () => {
-                  await clearCheckedAction();
-                  setChecked(new Set());
-                  toast.show({ message: "Cleared the checked items" });
-                });
+                clearChecked();
               }}
             />
           </div>

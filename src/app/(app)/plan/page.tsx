@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { PlanTabs } from "@/components/plan-tabs";
 import { MacroBar } from "@/components/macro-ui";
-import { PlanAddButton, PlanMenu } from "@/components/plan/plan-week-client";
+import { PlanAddButton, PlanEmptyWeek, PlanMenu } from "@/components/plan/plan-week-client";
 import { addDaysKey, dbDateToKey, keyToDbDate } from "@/lib/dates";
 import { fmtG, fmtKcal, macrosOf, sumByStatus } from "@/lib/macro-format";
 import { loadTargets } from "@/lib/load-day";
@@ -60,7 +60,21 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
     loadTargets(userId),
     defaultListRange(userId, now.today),
   ]);
-  const list = await loadShoppingList(userId, range.start, range.end);
+  const [list, lastWeekCount, latestBefore] = await Promise.all([
+    loadShoppingList(userId, range.start, range.end),
+    entries.length === 0
+      ? prisma.planEntry.count({
+          where: { userId, date: { gte: keyToDbDate(addDaysKey(weekStart, -7)), lte: keyToDbDate(addDaysKey(weekStart, -1)) }, status: { not: "SKIPPED" } },
+        })
+      : 0,
+    entries.length === 0
+      ? prisma.planEntry.findFirst({
+          where: { userId, date: { lt: keyToDbDate(weekStart) }, status: { not: "SKIPPED" } },
+          orderBy: { date: "desc" },
+          select: { date: true },
+        })
+      : null,
+  ]);
 
   const byDay = new Map<string, typeof entries>();
   for (const e of entries) {
@@ -96,6 +110,16 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
       </header>
 
       <PlanTabs active="week" left={list.left} />
+
+      {entries.length === 0 ? (
+        <PlanEmptyWeek
+          weekStart={weekStart}
+          today={now.today}
+          lastWeekHas={lastWeekCount > 0}
+          sourceDate={latestBefore ? dbDateToKey(latestBefore.date) : null}
+        />
+      ) : (
+        <>
 
       <nav className="mb-4 grid grid-cols-7 gap-1" aria-label="Days">
         {days.map((d) => {
@@ -202,6 +226,8 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
         <span className="font-semibold">List</span>
         <ChevronRight className="size-5" />
       </Link>
+        </>
+      )}
     </>
   );
 }

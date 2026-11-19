@@ -111,6 +111,30 @@ export function HomeTodayCard({
     });
   }
 
+  // Nothing eaten or planned yet: say what fills this card, and how.
+  if (eaten.kcal === 0 && planned.kcal === 0 && !next) {
+    return (
+      <section className="card flex flex-col gap-4 p-4" aria-label="Today">
+        <div className="flex items-center gap-4">
+          <KcalRing eaten={0} planned={0} target={kt} size={96} stroke={10} compactLabel />
+          <div className="min-w-0 flex-1">
+            <p className="text-[17px] font-semibold">Nothing logged today</p>
+            <p className="mt-0.5 text-sm text-ink-2">
+              {kt != null ? "Your targets are set. Add your first food and this fills in." : "Add your first food and this fills in. Set targets in Me to see what's left."}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => openAddSheet(router, pathname, new URLSearchParams(window.location.search), slot)}
+          className="press flex h-12 items-center justify-center gap-2 rounded-btn bg-ink font-semibold text-inv"
+        >
+          <Plus className="size-5" /> Log food
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="card flex flex-col gap-4 p-4" aria-label="Today">
       <Link href="/today" className="flex flex-col gap-4" aria-label="Open Today">

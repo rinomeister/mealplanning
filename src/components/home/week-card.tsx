@@ -59,7 +59,7 @@ export function WeekCard({ days, targets }: { days: WeekDay[]; targets: Targets 
   const avg = (k: "kcal" | "protein") => done.reduce((s, d) => s + d[k], 0) / (done.length || 1);
 
   return (
-    <Link href="/plan" className="card press flex flex-col gap-2.5 px-4 py-3.5" aria-label="This week. Open the plan">
+    <Link href="/me/progress" className="card press flex flex-col gap-2.5 px-4 py-3.5" aria-label="This week. Open progress">
       <div className="flex items-baseline gap-1.5">
         <span className="t-h3 flex-1">This week</span>
         {hit != null && done.length > 0 && (
@@ -79,7 +79,9 @@ export function WeekCard({ days, targets }: { days: WeekDay[]; targets: Targets 
       </div>
       <p className="text-xs text-ink-2">
         {done.length === 0
-          ? "Averages show once a full day is logged."
+          ? days.some((d) => d.kcal > 0)
+            ? "Averages show once a full day is logged."
+            : "Each logged day adds a ring here."
           : `Avg ${fmtKcal(avg("kcal"))} kcal · ${fmtG(avg("protein"))} g protein${
               sugarOver > 0 ? ` · sugar over on ${sugarOver} day${sugarOver === 1 ? "" : "s"}` : ""
             }`}
