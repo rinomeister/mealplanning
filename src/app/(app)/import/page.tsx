@@ -22,7 +22,7 @@ export default async function ImportByCodePage({
   if (code) redirect(`/import/${code}`);
 
   return (
-    <>
+    <div className="desk:mx-auto desk:max-w-2xl">
       <PageHeader
         title="Import a meal"
         description="Got a share code from someone? Enter it to preview their meal."
@@ -50,6 +50,6 @@ export default async function ImportByCodePage({
           </form>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }

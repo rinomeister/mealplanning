@@ -30,7 +30,7 @@ export default async function AppLayout({
             {/* The only scrolling element. Side padding clears the notch in
                 landscape. */}
             <main id="app-scroll" className="app-scroll">
-              <div className="mx-auto w-full max-w-3xl pb-8 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-3 desk:px-8 desk:pb-10 desk:pt-8">
+              <div className="mx-auto w-full max-w-3xl pb-8 desk:max-w-[1200px] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-3 desk:px-8 desk:pb-10 desk:pt-8">
                 <OfflineBanner />
                 {children}
               </div>

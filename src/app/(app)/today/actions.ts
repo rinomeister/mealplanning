@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import {
@@ -468,6 +468,8 @@ export async function removeEntriesAction(ids: string[]): Promise<ActionResult> 
   if (ids.length === 0) return { ok: true };
   await prisma.planEntry.deleteMany({ where: { id: { in: ids }, userId } });
   revalidateDay(todayKey());
+  // Undo often calls this from a toast; refresh the page in this same response.
+  refresh();
   return { ok: true };
 }
 

@@ -281,6 +281,9 @@ export function TodayView({
 
   return (
     <>
+      {/* Desktop: totals and suggestions stay put on the left; slots scroll on the right. */}
+      <div className="desk:grid desk:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] desk:items-start desk:gap-6">
+      <div className="desk:sticky desk:top-0">
       <SummaryWithStrip eaten={eaten} planned={planned} targets={targets} />
       {uncounted > 0 && (
         <p className="mt-2 text-sm text-ink-3">
@@ -293,7 +296,7 @@ export function TodayView({
           <h2 id="fits-heading" className="t-cap mb-2">
             Fits what&apos;s left
           </h2>
-          <div className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none]">
+          <div className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] desk:mx-0 desk:flex-col desk:overflow-visible desk:px-0">
             {suggestions.map((s) => (
               <div key={s.id} className="flex min-w-44 shrink-0 items-center gap-2 rounded-btn border border-line bg-surface py-2 pl-4 pr-1.5">
                 <div className="min-w-0 flex-1">
@@ -315,6 +318,8 @@ export function TodayView({
           </div>
         </section>
       )}
+      </div>
+      <div>
 
       {visible.length === 0 ? (
         <EmptyDay
@@ -325,7 +330,7 @@ export function TodayView({
           onCopyYesterday={copyYesterday}
         />
       ) : (
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-5 flex flex-col gap-3 desk:mt-0">
         {groups.map((group) =>
           group[0].open ? (
             group.map((s) => (
@@ -428,6 +433,8 @@ export function TodayView({
         )}
       </div>
       )}
+      </div>
+      </div>
 
       {menuEntry && (
         <EntryMenu
@@ -544,7 +551,7 @@ function EmptyDay({
   onCopyYesterday: () => void;
 }) {
   return (
-    <section className="card mt-5 flex flex-col items-center gap-3 px-4 pb-4 pt-6 text-center" aria-label="Nothing logged yet">
+    <section className="card mt-5 flex flex-col items-center gap-3 px-4 pb-4 pt-6 text-center desk:mt-0" aria-label="Nothing logged yet">
       <span className="grid size-12 place-items-center rounded-[14px] bg-surface-2 text-ink-2">
         <Soup className="size-5" />
       </span>

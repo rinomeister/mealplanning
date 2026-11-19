@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { SLOTS, copyWeekSchema, planEntrySchema, type CopyWeekInput, type SlotKey } from "@/lib/schemas";
@@ -210,4 +210,57 @@ export async function copyDayToDatesAction(input: {
   revalidatePath("/today");
   revalidatePath("/");
   return { ok: true, count: ids.length, ids };
+}
+
+/**
+ * Desktop Plan grid: drag a cell (everything in one day's slot) onto another
+ * cell. Moves it (entries keep their eaten/planned state, so Undo is a plain
+ * move back), or copies it with Alt held (copies are planned).
+ */
+export async function moveCellAction(input: {
+  fromDate: string;
+  fromSlot: string;
+  toDate: string;
+  toSlot: string;
+  copy: boolean;
+}): Promise<{ ok: true; count: number; ids: string[] } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const isSlot = (x: string): x is SlotKey => (SLOTS as readonly string[]).includes(x);
+  const { fromDate, fromSlot, toDate, toSlot, copy } = input;
+  if (!DATE_RE.test(fromDate) || !DATE_RE.test(toDate) || !isSlot(fromSlot) || !isSlot(toSlot)) {
+    return { ok: false, error: "Invalid request." };
+  }
+  if (fromDate === toDate && fromSlot === toSlot) return { ok: true, count: 0, ids: [] };
+
+  if (copy) {
+    const ids = await copyEntries(userId, { dateFrom: fromDate, dateTo: fromDate, slot: fromSlot }, () => toDate, toSlot);
+    if (ids.length === 0) return { ok: false, error: "Nothing there to copy." };
+    revalidateAll();
+    refresh();
+    return { ok: true, count: ids.length, ids };
+  }
+
+  const entries = await prisma.planEntry.findMany({
+    where: { userId, date: keyToDbDate(fromDate), slot: fromSlot },
+    orderBy: { position: "asc" },
+    select: { id: true },
+  });
+  if (entries.length === 0) return { ok: false, error: "Nothing there to move." };
+  let position = await nextPosition(userId, toDate, toSlot);
+  await prisma.$transaction(
+    entries.map((e) =>
+      prisma.planEntry.update({
+        where: { id: e.id },
+        data: {
+          date: keyToDbDate(toDate),
+          slot: toSlot,
+          position: position++,
+        },
+      }),
+    ),
+  );
+  revalidateAll();
+  // Refresh the grid in this same response (one round trip).
+  refresh();
+  return { ok: true, count: entries.length, ids: entries.map((e) => e.id) };
 }

@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { refresh, revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/auth-helpers";
 import { bodyweightSchema } from "@/lib/schemas";
@@ -42,17 +41,14 @@ export async function updateProfileFieldAction(key: string, raw: string): Promis
   return { ok: true };
 }
 
-/**
- * Ends in a redirect back to Me so the fresh page arrives with the response:
- * a plain router.refresh() after this action was dropped in production builds.
- */
+/** Units only change the display, so refresh the page in this response. */
 export async function updateUnitsAction(units: string): Promise<Result> {
   const userId = await requireUserId();
   if (units !== "METRIC" && units !== "IMPERIAL") return { ok: false, error: "Unknown units." };
   await prisma.user.update({ where: { id: userId }, data: { units } });
   revalidateMe();
-  // A different URL each way: a same-URL refresh of Me was also dropped.
-  redirect(`/me?units=${units.toLowerCase()}`);
+  refresh();
+  return { ok: true };
 }
 
 /** "Skip and use defaults" after sign-up: fills only the targets still empty. */

@@ -78,6 +78,8 @@ export async function copyEntries(
   userId: string,
   where: { dateFrom: DateKey; dateTo: DateKey; slot?: SlotKey; slots?: SlotKey[] },
   place: (sourceDate: DateKey) => DateKey,
+  /** Put every copy in this slot instead of its own (desktop drag to another cell). */
+  slotTo?: SlotKey,
 ): Promise<string[]> {
   const sources = await prisma.planEntry.findMany({
     where: {
@@ -110,7 +112,8 @@ export async function copyEntries(
     select: { id: true },
     data: sources.map((s) => {
       const date = place(dbDateToKey(s.date));
-      const key = `${date}|${s.slot}`;
+      const slot = slotTo ?? s.slot;
+      const key = `${date}|${slot}`;
       const position = nextPos.get(key) ?? 0;
       nextPos.set(key, position + 1);
       // A meal eaten by weight keeps its weight against today's batch.
@@ -124,7 +127,7 @@ export async function copyEntries(
       return {
         userId,
         date: keyToDbDate(date),
-        slot: s.slot,
+        slot,
         mealId: s.mealId,
         productId: s.productId,
         servings,

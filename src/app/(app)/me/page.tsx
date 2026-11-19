@@ -49,7 +49,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
   const pcfPct = pcf != null && t.kcal ? Math.round((Math.abs(pcf - t.kcal) / t.kcal) * 100) : null;
 
   return (
-    <>
+    <div className="desk:mx-auto desk:max-w-2xl">
       <div className="mb-4 flex items-center gap-1">
         <BackButton fallback="/" />
         <h1 className="t-title">Me</h1>
@@ -172,7 +172,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
         </ul>
         <p className="truncate px-1 text-[13px] text-ink-3">Signed in as {user.email}</p>
       </div>
-    </>
+    </div>
   );
 }
 

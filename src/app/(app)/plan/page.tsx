@@ -6,6 +6,7 @@ import { requireUserId } from "@/lib/auth-helpers";
 import { PlanTabs } from "@/components/plan-tabs";
 import { MacroBar } from "@/components/macro-ui";
 import { PlanAddButton, PlanEmptyWeek, PlanMenu } from "@/components/plan/plan-week-client";
+import { PlanWeekGrid, type GridCell } from "@/components/plan/plan-week-grid";
 import { addDaysKey, dbDateToKey, keyToDbDate } from "@/lib/dates";
 import { fmtG, fmtKcal, macrosOf, sumByStatus } from "@/lib/macro-format";
 import { loadTargets } from "@/lib/load-day";
@@ -84,8 +85,25 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
   const days = Array.from({ length: 7 }, (_, i) => {
     const date = addDaysKey(weekStart, i);
     const t = sumByStatus(byDay.get(date) ?? []);
-    return { date, kcal: t.eaten.kcal + t.planned.kcal, has: (byDay.get(date) ?? []).length > 0 };
+    return {
+      date,
+      kcal: t.eaten.kcal + t.planned.kcal,
+      protein: t.eaten.protein + t.planned.protein,
+      has: (byDay.get(date) ?? []).length > 0,
+    };
   });
+
+  // Desktop grid: one card per day and slot.
+  const cells: Record<string, GridCell> = {};
+  for (const e of entries) {
+    const key = `${dbDateToKey(e.date)}|${e.slot}`;
+    const m = macrosOf(e);
+    const c = (cells[key] ??= { names: [], kcal: 0, protein: 0, eaten: true });
+    c.names.push(e.meal?.name ?? e.product?.name ?? e.label ?? "Quick add");
+    c.kcal += m.kcal;
+    c.protein += m.protein;
+    c.eaten &&= e.status === "EATEN";
+  }
 
   const dayEntries = byDay.get(selected) ?? [];
   const totals = sumByStatus(dayEntries);
@@ -121,6 +139,10 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
       ) : (
         <>
 
+      <PlanWeekGrid days={days} cells={cells} today={now.today} selected={selected} kcalTarget={targets.kcal} />
+
+      {/* Phones and tablets: a day strip, then the selected day's slots. */}
+      <div className="desk:hidden">
       <nav className="mb-4 grid grid-cols-7 gap-1" aria-label="Days">
         {days.map((d) => {
           const on = d.date === selected;
@@ -208,8 +230,9 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
           })}
         </ul>
       </section>
+      </div>
 
-      <Link href="/plan/list" className="card press flex min-h-16 items-center gap-3 px-4 py-3">
+      <Link href="/plan/list" className="card press desk:mt-4 desk:max-w-md flex min-h-16 items-center gap-3 px-4 py-3">
         <ListChecks className="size-5 shrink-0" />
         <span className="min-w-0 flex-1">
           <span className="block text-[15px]">

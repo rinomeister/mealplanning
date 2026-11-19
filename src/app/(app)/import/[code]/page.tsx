@@ -61,7 +61,7 @@ export default async function SharedMealPage({
   const sharer = meal.user.name?.trim().split(/\s+/)[0];
 
   return (
-    <>
+    <div className="desk:mx-auto desk:max-w-2xl">
       <PageHeader
         title={meal.name}
         description={`${sharer ? `Shared by ${sharer}` : "Shared meal"} · code ${formatShareCode(share.code)}`}
@@ -150,6 +150,6 @@ export default async function SharedMealPage({
           </p>
         )}
       </div>
-    </>
+    </div>
   );
 }

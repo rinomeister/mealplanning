@@ -277,7 +277,7 @@ export function ScannerScreen({
 
   return (
     <div
-      className="fixed inset-x-0 z-30 overflow-hidden bg-[#111214] text-white"
+      className="fixed inset-x-0 z-30 overflow-hidden desk:left-60 bg-[#111214] text-white"
       style={{ top: "var(--vv-top, 0px)", height: "var(--vv-h, 100dvh)" }}
     >
       <video

@@ -87,10 +87,22 @@ export function ShoppingListView({
     <>
       <header className="mb-4 flex items-center gap-2">
         <h1 className="t-title flex-1">Plan</h1>
-        <Link href="/plan/list/add" aria-label="Add an item" className="grid size-11 place-items-center rounded-[14px] bg-surface-2">
+        {/* Desktop: the actions sit in the header; phones get + and ⋯. */}
+        <Link href="/plan/list/aisles" className="press hidden h-11 items-center rounded-btn border border-line bg-surface px-4 font-semibold desk:flex">
+          Edit aisles
+        </Link>
+        {total - left > 0 && (
+          <button type="button" onClick={clearChecked} className="press hidden h-11 items-center rounded-btn border border-line bg-surface px-4 font-semibold desk:flex">
+            Clear {total - left} checked
+          </button>
+        )}
+        <Link href="/plan/list/add" className="press hidden h-11 items-center gap-1.5 rounded-btn bg-ink px-4 font-semibold text-inv desk:flex">
+          <Plus className="size-4" /> Add item
+        </Link>
+        <Link href="/plan/list/add" aria-label="Add an item" className="grid size-11 place-items-center rounded-[14px] bg-surface-2 desk:hidden">
           <Plus className="size-5" />
         </Link>
-        <button type="button" onClick={() => setMenu("more")} aria-label="List options" className="grid size-11 place-items-center rounded-[14px]">
+        <button type="button" onClick={() => setMenu("more")} aria-label="List options" className="grid size-11 place-items-center rounded-[14px] desk:hidden">
           <MoreHorizontal className="size-5" />
         </button>
       </header>
@@ -132,9 +144,9 @@ export function ShoppingListView({
           </div>
         </section>
       ) : (
-        <div className="flex flex-col gap-4 pb-6">
+        <div className="flex flex-col gap-4 pb-6 desk:block desk:columns-3 desk:gap-4">
           {left === 0 && (
-            <div className="card flex items-center gap-3 p-4" role="status">
+            <div className="card flex items-center gap-3 p-4 desk:mb-4 desk:[column-span:all]" role="status">
               <CircleCheck className="size-6 shrink-0 text-good" />
               <span className="min-w-0 flex-1">
                 <b className="block">All bought</b>
@@ -146,7 +158,7 @@ export function ShoppingListView({
             </div>
           )}
           {list.groups.map((g) => (
-            <section key={g.aisle.key} aria-label={g.aisle.label}>
+            <section key={g.aisle.key} aria-label={g.aisle.label} className="desk:mb-4 desk:break-inside-avoid">
               <h2 className="t-cap mb-1.5">{g.aisle.label}</h2>
               <ul className="card divide-y divide-line px-4">
                 {g.items.map((item) => (

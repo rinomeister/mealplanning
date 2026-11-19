@@ -133,11 +133,15 @@ export default async function HomePage() {
         action={<AvatarLink name={user.name || user.email} />}
       />
 
-      <div className="flex flex-col gap-3">
+      {/* Desktop: today on the left; the week and the small cards on the right. */}
+      <div className="flex flex-col gap-3 desk:grid desk:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] desk:items-start desk:gap-4">
+        <div className="flex flex-col gap-3">
         <HomeTodayCard date={today} slot={now.slot} totals={totals} targets={targets} next={next} />
 
         {sheet.recents.length > 0 && <LogAgain date={today} slot={now.slot} items={sheet.recents.slice(0, 3)} />}
 
+        </div>
+        <div className="flex flex-col gap-3 desk:gap-4">
         <WeekCard days={days} targets={targets} />
 
         <div className="grid grid-cols-2 gap-3">
@@ -200,6 +204,7 @@ export default async function HomePage() {
               </span>
             </Link>
           )}
+        </div>
         </div>
       </div>
     </>

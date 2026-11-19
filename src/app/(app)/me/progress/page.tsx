@@ -57,8 +57,8 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
         </nav>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <section className="card p-4" aria-labelledby="protein-heading">
+      <div className="flex flex-col gap-3 desk:grid desk:grid-cols-2 desk:items-start desk:gap-4">
+        <section className="card p-4 desk:order-1" aria-labelledby="protein-heading">
           <div className="mb-3 flex items-baseline justify-between gap-2">
             <h2 id="protein-heading" className="text-[17px] font-semibold">
               Protein per day
@@ -82,7 +82,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           )}
         </section>
 
-        <section className="card p-4" aria-labelledby="avg-heading">
+        <section className="card p-4 desk:order-3" aria-labelledby="avg-heading">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 id="avg-heading" className="text-[17px] font-semibold">
               {range}-day averages
@@ -96,7 +96,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           )}
         </section>
 
-        <section className="card p-4" aria-labelledby="bw-heading">
+        <section className="card p-4 desk:order-2" aria-labelledby="bw-heading">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h2 id="bw-heading" className="text-[17px] font-semibold">
               Bodyweight
@@ -128,7 +128,9 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           </div>
         </section>
 
-        <WeighIns rows={history.map((h) => ({ id: h.id, date: dbDateToKey(h.recordedAt), kg: h.weightKg }))} units={units} />
+        <div className="desk:order-4">
+          <WeighIns rows={history.map((h) => ({ id: h.id, date: dbDateToKey(h.recordedAt), kg: h.weightKg }))} units={units} />
+        </div>
       </div>
     </>
   );

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { FlowScreen } from "@/components/add/flow-screen";
 import type { ConfirmProduct } from "@/components/add/product-confirm";
 import { createProductAction, updateProductAction } from "@/app/(app)/products/actions";
+import { useSaveShortcut } from "@/lib/use-save-shortcut";
 
 type Basis = "100g" | "100ml" | "serving";
 const MACRO_KEYS = ["kcal", "protein", "carbs", "fat", "sugar", "fiber"] as const;
@@ -196,6 +197,10 @@ export function ProductForm({
     );
     setBusy(null);
   }
+
+  useSaveShortcut(() => {
+    if (busy == null) void save(false);
+  });
 
   const title = editing ? "Edit product" : name.trim() || "New product";
 

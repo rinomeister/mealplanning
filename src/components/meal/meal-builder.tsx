@@ -17,6 +17,7 @@ import { FlowScreen } from "@/components/add/flow-screen";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
 import { ProductPickerDialog } from "@/components/product-picker-dialog";
 import { createMealAction, createTagAction, updateMealAction } from "@/app/(app)/meals/actions";
+import { useSaveShortcut } from "@/lib/use-save-shortcut";
 
 type TagItem = { id: string; name: string; color: string | null };
 
@@ -241,6 +242,10 @@ export function MealBuilder({
       return next;
     });
   }
+
+  useSaveShortcut(() => {
+    if (!isPending) save();
+  });
 
   function save() {
     setError(null);

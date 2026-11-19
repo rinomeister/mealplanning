@@ -6,10 +6,14 @@ import { Loader2, Trash2 } from "lucide-react";
 import { deleteMessage } from "@/lib/format";
 import { useToast } from "@/components/toast";
 import { ProductForm, type ProductFormInitial } from "@/components/product/product-form";
+import { InlineFlowProvider } from "@/components/add/flow-screen";
 import { deleteProductAction, productUpcomingCountAction } from "@/app/(app)/products/actions";
 
-/** /products/:id — edit name, barcode, nutrition and portions; delete. */
-export function ProductEdit({ initial }: { initial: ProductFormInitial }) {
+/**
+ * /products/:id — edit name, barcode, nutrition and portions; delete.
+ * With onDone it sits in the desktop Library pane instead of its own page.
+ */
+export function ProductEdit({ initial, onDone }: { initial: ProductFormInitial; onDone?: () => void }) {
   const router = useRouter();
   const toast = useToast();
   const [deleting, startDelete] = useTransition();
@@ -24,17 +28,19 @@ export function ProductEdit({ initial }: { initial: ProductFormInitial }) {
         return;
       }
       toast.show({ message: `Deleted ${initial.name}` });
-      router.push("/library/products");
+      if (onDone) onDone();
+      else router.push("/library/products");
     });
   }
 
   return (
     <ProductForm
       initial={initial}
-      onCancel={() => router.back()}
+      onCancel={() => (onDone ? onDone() : router.back())}
       onSaved={(p) => {
         toast.show({ message: `Saved ${p.name}` });
-        router.push("/library/products");
+        if (onDone) router.refresh();
+        else router.push("/library/products");
       }}
       footer={
         <div className="flex flex-col gap-2 pt-2">
@@ -52,5 +58,15 @@ export function ProductEdit({ initial }: { initial: ProductFormInitial }) {
         </div>
       }
     />
+  );
+}
+
+/** Desktop Library: the editor in the pane beside the list. */
+export function ProductPane({ initial }: { initial: ProductFormInitial }) {
+  const router = useRouter();
+  return (
+    <InlineFlowProvider>
+      <ProductEdit initial={initial} onDone={() => router.replace("/library/products", { scroll: false })} />
+    </InlineFlowProvider>
   );
 }

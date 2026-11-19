@@ -232,7 +232,7 @@ export function LogAgain({ date, slot, items }: { date: string; slot: SlotKey; i
   return (
     <section className="flex flex-col gap-2" aria-label="Log again">
       <h2 className="t-cap">Log again · to {SLOT_LABELS[slot]}</h2>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] desk:mx-0 desk:flex-wrap desk:overflow-visible desk:px-0">
         {items.map((r) => {
           const key = `${r.kind}${r.id}`;
           return (

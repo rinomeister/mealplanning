@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Pencil, Plus, ScanBarcode, Search, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtG, fmtKcal } from "@/lib/macro-format";
@@ -34,16 +35,37 @@ function rowLine(p: PickerProduct): string {
   return parts.join(" · ");
 }
 
+/** On desktop a product opens in the pane beside the list, not its own page. */
+const isDesk = () => window.matchMedia("(min-width: 900px)").matches;
+
 /** Library · Products: search, favorites, recently used, sort by protein density. */
 export function ProductLibrary({
   products,
   favoriteIds,
   recentIds,
+  selectedId,
 }: {
   products: PickerProduct[];
   favoriteIds: string[];
   recentIds: string[];
+  /** The product open in the desktop pane. */
+  selectedId?: string;
 }) {
+  const router = useRouter();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" jumps to the search field, unless you're already typing somewhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   const [q, setQ] = useState("");
   const [favs, setFavs] = useState(() => new Set(favoriteIds));
   const [onlyFavs, setOnlyFavs] = useState(false);
@@ -86,14 +108,16 @@ export function ProductLibrary({
       <label className="relative mb-3 block">
         <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-ink-3" />
         <input
+          ref={searchRef}
           type="search"
           enterKeyHint="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search your products"
           aria-label="Search your products"
-          className="h-[52px] w-full rounded-full bg-surface-2 pl-12 pr-4 text-[17px] outline-none focus:ring-2 focus:ring-ink"
+          className="h-[52px] w-full rounded-full bg-surface-2 pl-12 pr-4 text-[17px] outline-none focus:ring-2 focus:ring-ink desk:pr-12"
         />
+        <kbd className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 font-sans text-sm text-ink-3 desk:block">/</kbd>
       </label>
 
       <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
@@ -130,8 +154,17 @@ export function ProductLibrary({
           {list.map((p) => {
             const d = proteinDensity(p.per100g);
             return (
-              <li key={p.id} className="flex items-center gap-2">
-                <Link href={`/products/${p.id}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5">
+              <li key={p.id} className={cn("flex items-center gap-2", p.id === selectedId && "desk:-mx-3 desk:rounded-[14px] desk:bg-surface desk:px-3 desk:shadow-card")}>
+                <Link
+                  href={`/products/${p.id}`}
+                  aria-current={p.id === selectedId ? "true" : undefined}
+                  onClick={(e) => {
+                    if (!isDesk()) return;
+                    e.preventDefault();
+                    router.replace(`/library/products?p=${p.id}`, { scroll: false });
+                  }}
+                  className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5"
+                >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{p.name}</span>
                     <span className="block text-[13px] leading-snug text-ink-3">{rowLine(p)}</span>

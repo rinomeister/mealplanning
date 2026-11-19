@@ -92,7 +92,7 @@ export function MealLibrary({
           description={meals.length === 0 ? "Build one from your products, or import a meal someone shared." : "Try another tag or clear the filters."}
         />
       ) : (
-        <ul className="flex flex-col gap-2.5 pb-24 tab:grid tab:grid-cols-2">
+        <ul className="flex flex-col gap-2.5 pb-24 tab:grid tab:grid-cols-2 desk:grid-cols-3">
           {list.map((m) => {
             const per = m.servingLabel?.trim().replace(/^1\s+/, "") || "serving";
             return (
