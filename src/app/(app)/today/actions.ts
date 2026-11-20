@@ -493,10 +493,12 @@ const r1 = (n: number) => (Math.abs(n) < 10 ? Math.round(n * 10) / 10 : Math.rou
  */
 export async function getAddSheetDataAction(
   date: string,
-  slot: string,
+  /** No slot yet: recents only, no "same as yesterday". */
+  slot: string | null,
 ): Promise<{ recents: RecentItem[]; yesterday: { names: string[]; kcal: number } | null }> {
   const userId = await requireUserId();
-  if (!DATE_RE.test(date) || !SLOT_SET.has(slot)) return { recents: [], yesterday: null };
+  if (!DATE_RE.test(date)) return { recents: [], yesterday: null };
+  const hasSlot = slot != null && SLOT_SET.has(slot);
 
   const [rows, prev] = await Promise.all([
     prisma.planEntry.findMany({
@@ -508,15 +510,17 @@ export async function getAddSheetDataAction(
         meal: { select: { name: true, servingLabel: true } },
       },
     }),
-    prisma.planEntry.findMany({
-      where: {
-        userId,
-        date: keyToDbDate(addDaysKey(date, -1)),
-        slot: slot as SlotKey,
-        status: { not: "SKIPPED" },
-      },
-      include: { product: { select: { name: true } }, meal: { select: { name: true } } },
-    }),
+    hasSlot
+      ? prisma.planEntry.findMany({
+          where: {
+            userId,
+            date: keyToDbDate(addDaysKey(date, -1)),
+            slot: slot as SlotKey,
+            status: { not: "SKIPPED" },
+          },
+          include: { product: { select: { name: true } }, meal: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   const seen = new Set<string>();

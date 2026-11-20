@@ -42,7 +42,6 @@ export default async function TodayPage({
   const { date: dateParam, add } = await searchParams;
   const now = await userNow();
   const date = dateParam && DATE_RE.test(dateParam) ? dateParam : now.today;
-  const isToday = date === now.today;
   const focusSlot = SLOTS.includes(add as SlotKey) ? (add as SlotKey) : null;
 
   const [user, entries, yesterdayEntries, mealRecords] =
@@ -147,7 +146,6 @@ export default async function TodayPage({
         key={date}
         date={date}
         logAsEaten={date <= now.today}
-        currentSlot={isToday ? now.slot : null}
         focusSlot={focusSlot}
         targets={targets}
         entries={entries.map(toDayEntry)}

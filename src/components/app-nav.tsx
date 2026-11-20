@@ -57,11 +57,11 @@ function isActive(pathname: string, item: NavItem) {
   );
 }
 
-/** "+" opens the Add sheet over the current page, for the slot that fits now. */
+/** "+" opens the Add sheet over the current page; the user picks the slot. */
 function useOpenAdd() {
   const router = useRouter();
   const pathname = usePathname();
-  return () => openAddSheet(router, pathname, new URLSearchParams(window.location.search), defaultSlot());
+  return () => openAddSheet(router, pathname, new URLSearchParams(window.location.search), null);
 }
 
 /**

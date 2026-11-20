@@ -75,7 +75,7 @@ export default async function HomePage() {
       orderBy: { recordedAt: "asc" },
       select: { recordedAt: true, weightKg: true },
     }),
-    getAddSheetDataAction(today, now.slot),
+    getAddSheetDataAction(today, null),
     countLeftToBuy(userId, today),
   ]);
 
@@ -136,9 +136,9 @@ export default async function HomePage() {
       {/* Desktop: today on the left; the week and the small cards on the right. */}
       <div className="flex flex-col gap-3 desk:grid desk:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] desk:items-start desk:gap-4">
         <div className="flex flex-col gap-3">
-        <HomeTodayCard date={today} slot={now.slot} totals={totals} targets={targets} next={next} />
+        <HomeTodayCard date={today} totals={totals} targets={targets} next={next} />
 
-        {sheet.recents.length > 0 && <LogAgain date={today} slot={now.slot} items={sheet.recents.slice(0, 3)} />}
+        {sheet.recents.length > 0 && <LogAgain date={today} items={sheet.recents.slice(0, 3)} />}
 
         </div>
         <div className="flex flex-col gap-3 desk:gap-4">

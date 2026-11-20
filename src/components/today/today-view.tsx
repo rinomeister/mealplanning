@@ -9,6 +9,7 @@ import { addMacros, ZERO_MACROS, type Macros } from "@/lib/macros";
 import { fmtG, fmtKcal, macrosOf, sumByStatus, type Targets } from "@/lib/macro-format";
 import type { DayEntry } from "@/lib/day-entry";
 import { MacroDot, MacroStrip, MacroSummaryFull } from "@/components/macro-ui";
+import { SlotPickSheet } from "@/components/slot-pick-sheet";
 import { useToast } from "@/components/toast";
 import { Modal } from "@/components/ui/modal";
 import { SaveSlotMealForm } from "@/components/save-slot-meal";
@@ -60,7 +61,6 @@ function sumMacros(list: DayEntry[]): Macros {
 export function TodayView({
   date,
   logAsEaten,
-  currentSlot,
   focusSlot,
   targets,
   entries,
@@ -70,8 +70,6 @@ export function TodayView({
   date: string;
   /** Today or earlier: things logged here are eaten, not planned. */
   logAsEaten: boolean;
-  /** The slot that fits the time of day (today only). */
-  currentSlot: SlotKey | null;
   /** Slot to open and scroll to, from "+" (?add=). */
   focusSlot: SlotKey | null;
   targets: Targets;
@@ -89,6 +87,7 @@ export function TodayView({
   const [menuSlot, setMenuSlot] = useState<SlotKey | null>(null);
   const [saveSlot, setSaveSlot] = useState<SlotKey | null>(null);
   const [toggled, setToggled] = useState<Partial<Record<SlotKey, boolean>>>({});
+  const [pickFor, setPickFor] = useState<Suggestion | null>(null);
 
   const visible = optimistic.filter((e) => !hidden.has(e.id));
   const { eaten, planned } = sumByStatus(
@@ -225,8 +224,7 @@ export function TodayView({
     });
   }
 
-  function addSuggestion(s: Suggestion) {
-    const slot = currentSlot ?? "SNACK_1";
+  function addSuggestion(s: Suggestion, slot: SlotKey) {
     startTransition(async () => {
       const res = await addPlanEntryAction({ date, slot, mealId: s.id, servings: 1 }, { eaten: logAsEaten });
       if (!res.ok) {
@@ -247,8 +245,8 @@ export function TodayView({
     const list = visible.filter((e) => e.slot === slot);
     const counted = list.filter((e) => e.status !== "SKIPPED");
     const allEaten = counted.length > 0 && counted.every((e) => e.status === "EATEN");
-    const autoOpen = slot === currentSlot || slot === focusSlot;
-    const open = toggled[slot] ?? autoOpen;
+    // Every slot starts open; the user collapses what they don't need.
+    const open = toggled[slot] ?? true;
     return {
       slot,
       list,
@@ -257,7 +255,6 @@ export function TodayView({
       hasPlanned: counted.some((e) => e.status === "PLANNED"),
       totals: sumMacros(counted),
       open,
-      isNow: slot === currentSlot,
     };
   });
 
@@ -302,14 +299,14 @@ export function TodayView({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{s.name}</p>
                   <p className="text-[13px] text-ink-3">
-                    {fmtKcal(s.kcal ?? 0)} kcal{s.protein != null && ` · ${fmtG(s.protein)} P`}
+                    {fmtKcal(s.kcal ?? 0)} kcal{s.protein != null && ` · Protein ${fmtG(s.protein)} g`}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => addSuggestion(s)}
+                  onClick={() => setPickFor(s)}
                   className="press grid size-11 shrink-0 place-items-center rounded-[14px]"
-                  aria-label={`Add ${s.name} to ${SLOT_LABELS[currentSlot ?? "SNACK_1"]}`}
+                  aria-label={`Add ${s.name}`}
                 >
                   <Plus className="size-5" />
                 </button>
@@ -321,16 +318,14 @@ export function TodayView({
       </div>
       <div>
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && (
         <EmptyDay
-          date={date}
-          slot={currentSlot ?? "BREAKFAST"}
           yesterdayKcal={Object.values(yesterday).reduce((sum, p) => sum + (p?.kcal ?? 0), 0)}
           copying={copying}
           onCopyYesterday={copyYesterday}
         />
-      ) : (
-      <div className="mt-5 flex flex-col gap-3 desk:mt-0">
+      )}
+      <div className={cn("mt-5 flex flex-col gap-3", visible.length > 0 && "desk:mt-0")}>
         {groups.map((group) =>
           group[0].open ? (
             group.map((s) => (
@@ -338,31 +333,25 @@ export function TodayView({
                 key={s.slot}
                 ref={s.slot === focusSlot ? focusRef : undefined}
                 aria-label={SLOT_LABELS[s.slot]}
-                className={cn(
-                  "scroll-mt-24 rounded-card bg-surface px-4 pb-4 pt-3 shadow-card",
-                  s.isNow ? "border-2 border-ink" : "border border-line",
-                )}
+                className="scroll-mt-24 rounded-card border border-line bg-surface px-4 pb-4 pt-3 shadow-card"
               >
                 <div className="flex items-center gap-2">
                   <h2 className="text-[17px] font-semibold">{SLOT_LABELS[s.slot]}</h2>
-                  {s.isNow && <span className="tag bg-surface-2 text-ink">Now</span>}
                   {s.counted.length > 0 && (
                     <span className="ml-1 text-sm text-ink-3">
                       <span className="num font-semibold text-ink">{fmtKcal(s.totals.kcal)}</span> kcal
                     </span>
                   )}
                   <div className="ml-auto flex items-center">
-                    {!s.isNow && (
-                      <button
-                        type="button"
-                        onClick={() => setToggled((t) => ({ ...t, [s.slot]: false }))}
-                        className="grid size-11 place-items-center rounded-[14px] text-ink-2"
-                        aria-label={`Collapse ${SLOT_LABELS[s.slot]}`}
-                        aria-expanded
-                      >
-                        <ChevronDown className="size-5" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setToggled((t) => ({ ...t, [s.slot]: false }))}
+                      className="grid size-11 place-items-center rounded-[14px] text-ink-2"
+                      aria-label={`Collapse ${SLOT_LABELS[s.slot]}`}
+                      aria-expanded
+                    >
+                      <ChevronDown className="size-5" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setMenuSlot(s.slot)}
@@ -373,6 +362,7 @@ export function TodayView({
                     </button>
                   </div>
                 </div>
+                {s.counted.length > 0 && <SlotMacros totals={s.totals} className="-mt-1 mb-1" />}
                 {s.list.length > 0 && (
                   <div className="mb-3 divide-y divide-line">
                     {s.list.map((e) => (
@@ -418,10 +408,10 @@ export function TodayView({
                   </span>
                   {s.counted.length > 0 && (
                     <span className="shrink-0 text-right">
-                      <span className="num block font-semibold">{fmtKcal(s.totals.kcal)}</span>
+                      <span className="num block font-semibold">{fmtKcal(s.totals.kcal)} kcal</span>
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-2">
                         <MacroDot macro="protein" />
-                        <span className="num">{fmtG(s.totals.protein)}</span>
+                        Protein <span className="num">{fmtG(s.totals.protein)} g</span>
                       </span>
                     </span>
                   )}
@@ -432,9 +422,16 @@ export function TodayView({
           ),
         )}
       </div>
+      </div>
+      </div>
+
+      {pickFor && (
+        <SlotPickSheet
+          title={`Add ${pickFor.name} to`}
+          onClose={() => setPickFor(null)}
+          onPick={(slot) => addSuggestion(pickFor, slot)}
+        />
       )}
-      </div>
-      </div>
 
       {menuEntry && (
         <EntryMenu
@@ -537,15 +534,27 @@ function SummaryWithStrip({
   );
 }
 
+const MACRO_LABELS = { protein: "Protein", carbs: "Carbs", fat: "Fat" } as const;
+
+/** "Protein 32 g · Carbs 40 g · Fat 12 g" for one slot. */
+function SlotMacros({ totals, className }: { totals: Macros; className?: string }) {
+  return (
+    <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-ink-2", className)}>
+      {(["protein", "carbs", "fat"] as const).map((k) => (
+        <span key={k} className="inline-flex items-center gap-1">
+          <MacroDot macro={k} />
+          {MACRO_LABELS[k]} <span className="num font-semibold text-ink">{fmtG(totals[k])} g</span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function EmptyDay({
-  date,
-  slot,
   yesterdayKcal,
   copying,
   onCopyYesterday,
 }: {
-  date: string;
-  slot: SlotKey;
   yesterdayKcal: number;
   copying: boolean;
   onCopyYesterday: () => void;
@@ -558,8 +567,7 @@ function EmptyDay({
       <div>
         <p className="text-[17px] font-semibold">Nothing logged yet</p>
         <p className="mt-1 text-sm text-ink-2">
-          Start with {SLOT_LABELS[slot].toLowerCase()}
-          {yesterdayKcal > 0 ? ", or bring back yesterday in one tap." : "."}
+          Pick a meal below to start{yesterdayKcal > 0 ? ", or bring back yesterday in one tap." : "."}
         </p>
       </div>
       {yesterdayKcal > 0 && (
@@ -573,9 +581,6 @@ function EmptyDay({
           Copy yesterday · {fmtKcal(yesterdayKcal)} kcal
         </button>
       )}
-      <div className="w-full">
-        <AddFoodTiles date={date} slot={slot} />
-      </div>
     </section>
   );
 }

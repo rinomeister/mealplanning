@@ -10,6 +10,7 @@ import { SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { KcalRing, MacroBadge, MacroBar, barState } from "@/components/macro-ui";
 import { useToast } from "@/components/toast";
 import { openAddSheet } from "@/components/add/add-sheet";
+import { SlotPickSheet } from "@/components/slot-pick-sheet";
 import { addPlanEntryAction } from "@/app/(app)/plan/actions";
 import {
   logExistingProductAction,
@@ -76,13 +77,11 @@ function MacroRow({
  */
 export function HomeTodayCard({
   date,
-  slot,
   totals,
   targets,
   next,
 }: {
   date: string;
-  slot: SlotKey;
   totals: DayTotals;
   targets: Targets;
   next: NextUp | null;
@@ -126,7 +125,7 @@ export function HomeTodayCard({
         </div>
         <button
           type="button"
-          onClick={() => openAddSheet(router, pathname, new URLSearchParams(window.location.search), slot)}
+          onClick={() => openAddSheet(router, pathname, new URLSearchParams(window.location.search), null)}
           className="press flex h-12 items-center justify-center gap-2 rounded-btn bg-ink font-semibold text-inv"
         >
           <Plus className="size-5" /> Log food
@@ -188,7 +187,7 @@ export function HomeTodayCard({
             <span className="min-w-0 flex-1 truncate text-sm text-ink-2">Nothing planned for later today</span>
             <button
               type="button"
-              onClick={() => openAddSheet(router, pathname, new URLSearchParams(window.location.search), slot)}
+              onClick={() => openAddSheet(router, pathname, new URLSearchParams(window.location.search), null)}
               className="press flex h-9 shrink-0 items-center gap-1 rounded-[10px] bg-surface px-3 text-[13px] font-semibold"
             >
               <Plus className="size-4" /> Add
@@ -200,14 +199,15 @@ export function HomeTodayCard({
   );
 }
 
-/** "Log again": the last few things, at their last amount, into the current slot. */
-export function LogAgain({ date, slot, items }: { date: string; slot: SlotKey; items: RecentItem[] }) {
+/** "Log again": the last few things, at their last amount, into a slot the user picks. */
+export function LogAgain({ date, items }: { date: string; items: RecentItem[] }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, setPending] = useState<string | null>(null);
+  const [pickFor, setPickFor] = useState<RecentItem | null>(null);
   const [, startTransition] = useTransition();
 
-  function add(r: RecentItem) {
+  function add(r: RecentItem, slot: SlotKey) {
     const key = `${r.kind}${r.id}`;
     setPending(key);
     startTransition(async () => {
@@ -231,7 +231,7 @@ export function LogAgain({ date, slot, items }: { date: string; slot: SlotKey; i
 
   return (
     <section className="flex flex-col gap-2" aria-label="Log again">
-      <h2 className="t-cap">Log again · to {SLOT_LABELS[slot]}</h2>
+      <h2 className="t-cap">Log again</h2>
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] desk:mx-0 desk:flex-wrap desk:overflow-visible desk:px-0">
         {items.map((r) => {
           const key = `${r.kind}${r.id}`;
@@ -239,22 +239,29 @@ export function LogAgain({ date, slot, items }: { date: string; slot: SlotKey; i
             <button
               key={key}
               type="button"
-              onClick={() => add(r)}
+              onClick={() => setPickFor(r)}
               disabled={pending === key}
               className="chip h-12 shrink-0 gap-2"
-              aria-label={`Add ${r.amount} of ${r.name} to ${SLOT_LABELS[slot]}`}
+              aria-label={`Add ${r.amount} of ${r.name}`}
             >
               {pending === key ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               <span className="flex flex-col items-start leading-tight">
                 <span className="max-w-[180px] truncate text-sm font-semibold">{r.name}</span>
                 <span className="max-w-[180px] truncate text-xs text-ink-3">
-                  {r.amount.split(" · ")[0]} · {fmtKcal(r.kcal)} · {fmtG(r.protein)} P
+                  {r.amount.split(" · ")[0]} · {fmtKcal(r.kcal)} kcal · Protein {fmtG(r.protein)} g
                 </span>
               </span>
             </button>
           );
         })}
       </div>
+      {pickFor && (
+        <SlotPickSheet
+          title={`Add ${pickFor.name} to`}
+          onClose={() => setPickFor(null)}
+          onPick={(slot) => add(pickFor, slot)}
+        />
+      )}
     </section>
   );
 }

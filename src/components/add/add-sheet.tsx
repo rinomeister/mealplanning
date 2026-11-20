@@ -38,15 +38,18 @@ function wasPushed(): boolean {
   }
 }
 
-/** Open the Add sheet over the current page for a slot (the "+" button). */
+/** ?add= value for "open with no slot picked". */
+const NO_SLOT = "pick";
+
+/** Open the Add sheet over the current page, for a slot or (null) none picked yet. */
 export function openAddSheet(
   router: ReturnType<typeof useRouter>,
   pathname: string,
   search: URLSearchParams,
-  slot: SlotKey,
+  slot: SlotKey | null,
 ) {
   const q = new URLSearchParams(search);
-  q.set("add", slot);
+  q.set("add", slot ?? NO_SLOT);
   markPushed(true);
   router.push(`${pathname}?${q}`, { scroll: false });
 }
@@ -69,17 +72,19 @@ function yesterdayOf(date: string): string {
  */
 export function AddSheet() {
   const params = useSearchParams();
-  const slotParam = parseSlot(params.get("add"));
-  if (!slotParam) return null;
-  return <AddSheetBody key={slotParam} initialSlot={slotParam} />;
+  const raw = params.get("add");
+  if (raw == null) return null;
+  return <AddSheetBody key={raw} initialSlot={parseSlot(raw)} />;
 }
 
-function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
+function AddSheetBody({ initialSlot }: { initialSlot: SlotKey | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const toast = useToast();
-  const [slot, setSlot] = useState<SlotKey>(initialSlot);
+  const [slot, setSlot] = useState<SlotKey | null>(initialSlot);
+  /** Tried to go on without a slot: point at the chips. */
+  const [needSlot, setNeedSlot] = useState(false);
   const [data, setData] = useState<Awaited<ReturnType<typeof getAddSheetDataAction>> | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -118,23 +123,35 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
     });
   }
 
+  /** Nothing goes through until a slot is picked. */
+  function requireSlot(): boolean {
+    if (slot) return true;
+    setNeedSlot(true);
+    navigator.vibrate?.(10);
+    return false;
+  }
+
   function addRecent(r: RecentItem) {
+    if (!slot) return void requireSlot();
+    const s = slot;
     setPending(`${r.kind}${r.id}`);
     startTransition(async () => {
       const res =
         r.kind === "product"
-          ? await logExistingProductAction({ date, slot, productId: r.id, grams: r.grams ?? 100 }, { eaten })
-          : await addPlanEntryAction({ date, slot, mealId: r.id, servings: r.servings, grams: r.grams }, { eaten });
+          ? await logExistingProductAction({ date, slot: s, productId: r.id, grams: r.grams ?? 100 }, { eaten })
+          : await addPlanEntryAction({ date, slot: s, mealId: r.id, servings: r.servings, grams: r.grams }, { eaten });
       setPending(null);
-      if (res.ok) done(`Added to ${SLOT_LABELS[slot]} · ${fmtKcal(r.kcal)} kcal`, [res.id]);
+      if (res.ok) done(`Added to ${SLOT_LABELS[s]} · ${fmtKcal(r.kcal)} kcal`, [res.id]);
       else toast.show({ message: res.error, tone: "error" });
     });
   }
 
   function sameAsYesterday() {
+    if (!slot) return void requireSlot();
+    const s = slot;
     setPending("yesterday");
     startTransition(async () => {
-      const res = await copySlotFromDateAction({ fromDate: yesterdayOf(date), toDate: date, slot });
+      const res = await copySlotFromDateAction({ fromDate: yesterdayOf(date), toDate: date, slot: s });
       setPending(null);
       if (res.ok) done(`Added ${res.count} from yesterday`, res.ids);
       else toast.show({ message: res.error, tone: "error" });
@@ -145,7 +162,7 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
     "press flex h-[84px] flex-col justify-between rounded-card bg-surface-2 p-3.5 text-left text-[17px] font-semibold [&_svg]:size-5";
 
   return (
-    <Sheet label={`Add to ${SLOT_LABELS[slot]}`} onClose={close} history={false}>
+    <Sheet label={slot ? `Add to ${SLOT_LABELS[slot]}` : "Add food"} onClose={close} history={false}>
       <div className="flex flex-col gap-4 px-4 pb-4">
         <div className="flex items-center justify-between">
           <h2 className="t-h2">
@@ -155,34 +172,50 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
             <X className="size-5" />
           </button>
         </div>
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="radiogroup" aria-label="Slot">
-          {SLOTS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="radio"
-              aria-checked={slot === s}
-              onClick={() => setSlot(s)}
-              className={cn("chip sm", slot === s && "on")}
-            >
-              {SLOT_LABELS[s]}
-            </button>
-          ))}
+        <div>
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="radiogroup" aria-label="Slot" aria-describedby={needSlot ? "slot-hint" : undefined}>
+            {SLOTS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="radio"
+                aria-checked={slot === s}
+                onClick={() => {
+                  setSlot(s);
+                  setNeedSlot(false);
+                }}
+                className={cn("chip sm", slot === s && "on")}
+              >
+                {SLOT_LABELS[s]}
+              </button>
+            ))}
+          </div>
+          {!slot && (
+            <p id="slot-hint" role={needSlot ? "alert" : undefined} className={cn("mt-2 text-sm", needSlot ? "font-semibold text-bad" : "text-ink-3")}>
+              {needSlot ? "Pick a meal first." : "Pick a meal to add to."}
+            </p>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <Link href={flowHref("scan", slot, date)} className={tile}>
-            <ScanBarcode /> Scan barcode
-          </Link>
-          <Link href={flowHref("search", slot, date)} className={tile}>
-            <Search /> Product
-          </Link>
-          <Link href={flowHref("meal", slot, date)} className={tile}>
-            <CookingPot /> Saved meal
-          </Link>
-          <Link href={flowHref("quick", slot, date)} className={tile}>
-            <Zap /> Quick add
-          </Link>
+        <div className={cn("grid grid-cols-2 gap-2.5", !slot && "opacity-50")}>
+          {(
+            [
+              ["scan", <ScanBarcode key="i" />, "Scan barcode"],
+              ["search", <Search key="i" />, "Product"],
+              ["meal", <CookingPot key="i" />, "Saved meal"],
+              ["quick", <Zap key="i" />, "Quick add"],
+            ] as const
+          ).map(([kind, icon, label]) =>
+            slot ? (
+              <Link key={kind} href={flowHref(kind, slot, date)} className={tile}>
+                {icon} {label}
+              </Link>
+            ) : (
+              <button key={kind} type="button" onClick={requireSlot} className={tile} aria-disabled>
+                {icon} {label}
+              </button>
+            ),
+          )}
         </div>
 
         {data?.yesterday && (
@@ -219,7 +252,7 @@ function AddSheetBody({ initialSlot }: { initialSlot: SlotKey }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{r.name}</span>
                       <span className="block truncate text-[13px] text-ink-3">
-                        {r.amount} · {fmtKcal(r.kcal)} kcal · {fmtG(r.protein)} P
+                        {r.amount} · {fmtKcal(r.kcal)} kcal · Protein {fmtG(r.protein)} g
                       </span>
                     </span>
                     <button
