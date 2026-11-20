@@ -6,6 +6,7 @@ import { requireUserId } from "@/lib/auth-helpers";
 import { bodyweightSchema } from "@/lib/schemas";
 import { keyToDbDate } from "@/lib/dates";
 import { parseDecimal } from "@/lib/utils";
+import { isAvatarKey } from "@/lib/avatars";
 import { PROFILE_FIELDS, DEFAULT_TARGETS, type ProfileField } from "@/lib/profile-fields";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -87,4 +88,13 @@ export async function deleteBodyweightAction(id: string): Promise<void> {
   const userId = await requireUserId();
   await prisma.bodyweightLog.deleteMany({ where: { id, userId } });
   revalidateMe();
+}
+
+/** Pick a preset avatar; null goes back to the name initial. */
+export async function updateAvatarAction(avatar: string | null): Promise<Result> {
+  const userId = await requireUserId();
+  if (avatar !== null && !isAvatarKey(avatar)) return { ok: false, error: "Unknown avatar." };
+  await prisma.user.update({ where: { id: userId }, data: { avatar } });
+  revalidateMe();
+  return { ok: true };
 }

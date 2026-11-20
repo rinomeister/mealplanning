@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 const TEXT_INPUT_TYPES = new Set([
   "text",
@@ -30,6 +31,17 @@ function isTextField(el: Element | null): el is HTMLElement {
  * - The focused field is scrolled to the centre once the keyboard is up.
  */
 export function ViewportSync() {
+  const pathname = usePathname();
+
+  // A page change removes whatever field had focus: re-check the keyboard flag.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const el = document.activeElement;
+      if (!isTextField(el) || !el.isConnected) document.documentElement.removeAttribute("data-kbd");
+    }, 0);
+    return () => clearTimeout(t);
+  }, [pathname]);
+
   useEffect(() => {
     const root = document.documentElement;
     const vv = window.visualViewport;
@@ -57,6 +69,33 @@ export function ViewportSync() {
     };
     sync();
 
+    // The tab bar hides while data-kbd is set, so it must never outlive the
+    // focused field. "focusout" alone is not enough: when a focused input is
+    // removed (a sheet closing on save), iOS and some Android builds fire no
+    // event, which left the tab bar hidden for good. So the flag is re-derived
+    // from document.activeElement on every chance we get.
+    const checkKbd = () => {
+      if (coarse && isTextField(document.activeElement) && document.activeElement.isConnected) {
+        root.setAttribute("data-kbd", "");
+      } else {
+        root.removeAttribute("data-kbd");
+      }
+    };
+    let checkTimer: ReturnType<typeof setTimeout> | undefined;
+    // Focus may be moving straight to the next field; check after it lands.
+    const checkSoon = () => {
+      clearTimeout(checkTimer);
+      checkTimer = setTimeout(checkKbd, 0);
+    };
+    const onViewport = () => {
+      sync();
+      // The keyboard closing resizes the viewport, even when no blur fired.
+      checkSoon();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkSoon();
+    };
+
     let scrollTimer: ReturnType<typeof setTimeout> | undefined;
     const onFocusIn = (e: FocusEvent) => {
       if (!coarse || !isTextField(e.target as Element)) return;
@@ -68,26 +107,29 @@ export function ViewportSync() {
         if (isTextField(el)) el.scrollIntoView({ block: "center", behavior: "smooth" });
       }, 250);
     };
-    const onFocusOut = () => {
-      // Focus may be moving straight to the next field; check after it lands.
-      setTimeout(() => {
-        if (!isTextField(document.activeElement)) root.removeAttribute("data-kbd");
-      }, 0);
-    };
 
-    vv?.addEventListener("resize", sync);
+    vv?.addEventListener("resize", onViewport);
     vv?.addEventListener("scroll", sync);
-    window.addEventListener("resize", sync);
+    window.addEventListener("resize", onViewport);
+    window.addEventListener("pageshow", checkSoon);
     document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("focusout", onFocusOut);
+    document.addEventListener("focusout", checkSoon);
+    // Any tap re-checks, so a stuck flag clears on the next touch.
+    document.addEventListener("pointerdown", checkSoon, true);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(scrollTimer);
-      vv?.removeEventListener("resize", sync);
+      clearTimeout(checkTimer);
+      vv?.removeEventListener("resize", onViewport);
       vv?.removeEventListener("scroll", sync);
-      window.removeEventListener("resize", sync);
+      window.removeEventListener("resize", onViewport);
+      window.removeEventListener("pageshow", checkSoon);
       document.removeEventListener("focusin", onFocusIn);
-      document.removeEventListener("focusout", onFocusOut);
+      document.removeEventListener("focusout", checkSoon);
+      document.removeEventListener("pointerdown", checkSoon, true);
+      document.removeEventListener("visibilitychange", onVisible);
+      root.removeAttribute("data-kbd");
     };
   }, []);
 

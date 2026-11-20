@@ -10,7 +10,7 @@ import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { BackButton } from "@/components/back-button";
 import { MacroDot } from "@/components/macro-ui";
 import { ThemeSetting } from "@/components/theme";
-import { ScannerEngineName, UnitsSetting, WelcomeCard } from "@/components/me/me-client";
+import { AvatarPicker, ScannerEngineName, UnitsSetting, WelcomeCard } from "@/components/me/me-client";
 import { signOutAction } from "../actions";
 
 const row = "flex min-h-[52px] items-center gap-3 px-4";
@@ -107,6 +107,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
         )}
 
         <h2 className="t-cap mt-3">You</h2>
+        <AvatarPicker avatar={user.avatar} name={user.name || user.email} />
         <ul className="card divide-y divide-line overflow-hidden">
           <li>
             <Link href="/me/edit/name" className={row}>

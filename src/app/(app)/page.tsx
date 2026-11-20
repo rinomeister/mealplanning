@@ -41,6 +41,7 @@ export default async function HomePage() {
       select: {
         name: true,
         email: true,
+        avatar: true,
         units: true,
         targetKcal: true,
         targetProtein: true,
@@ -130,7 +131,7 @@ export default async function HomePage() {
       <PageHeader
         eyebrow={formatDayHeading(today)}
         title="Home"
-        action={<AvatarLink name={user.name || user.email} />}
+        action={<AvatarLink name={user.name || user.email} avatar={user.avatar} />}
       />
 
       {/* Desktop: today on the left; the week and the small cards on the right. */}

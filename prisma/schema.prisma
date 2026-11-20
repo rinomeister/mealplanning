@@ -23,6 +23,8 @@ model User {
   targetSugar   Int?
   targetFiber   Int?
   units         Units   @default(METRIC)
+  // Preset avatar key (public/avatars/<key>.svg). Null = the name initial.
+  avatar        String?
   // Shopping-list aisles in store order: [{ key, label }]. Null = the defaults.
   // "Other" is never stored; it is always last.
   aisleOrder    Json?

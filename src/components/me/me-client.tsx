@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UnitSystem } from "@/lib/units";
 import { SCANNER_ENGINES, useScannerEngine } from "@/lib/scanner-pref";
 import { useToast } from "@/components/toast";
-import { applyDefaultTargetsAction, updateUnitsAction } from "@/app/(app)/me/actions";
+import { AVATARS, avatarSrc } from "@/lib/avatars";
+import { Avatar } from "@/components/avatar-link";
+import { applyDefaultTargetsAction, updateAvatarAction, updateUnitsAction } from "@/app/(app)/me/actions";
 
 /** Metric | Imperial. Only changes the display; storage stays metric. */
 export function UnitsSetting({ units }: { units: UnitSystem }) {
@@ -70,6 +72,69 @@ export function WelcomeCard() {
       >
         {busy && <Loader2 className="size-4 animate-spin" />} Skip, use defaults
       </button>
+    </div>
+  );
+}
+
+/** Grid of preset avatars plus the plain initial. One tap saves. */
+export function AvatarPicker({ avatar, name }: { avatar: string | null; name: string | null }) {
+  const router = useRouter();
+  const toast = useToast();
+  // Shows the tap right away; the server render catches up after refresh.
+  const [choice, setChoice] = useState<string | null | undefined>(undefined);
+  const shown = choice === undefined ? avatar : choice;
+
+  function pick(key: string | null) {
+    if (key === shown) return;
+    setChoice(key);
+    void updateAvatarAction(key).then((res) => {
+      if (!res.ok) {
+        setChoice(undefined);
+        toast.show({ message: res.error, tone: "error" });
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  const options: { key: string | null; label: string }[] = [
+    { key: null, label: "Initial" },
+    ...AVATARS.map((a) => ({ key: a.key as string, label: a.label })),
+  ];
+
+  return (
+    <div className="card p-4">
+      <div role="radiogroup" aria-label="Avatar" className="grid grid-cols-5 gap-3 min-[400px]:grid-cols-7">
+        {options.map((o) => {
+          const on = shown === o.key;
+          return (
+            <button
+              key={o.key ?? "initial"}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={o.label}
+              onClick={() => pick(o.key)}
+              className={cn(
+                "press relative aspect-square rounded-full outline-offset-2",
+                on && "outline outline-[3px] outline-ink",
+              )}
+            >
+              {o.key ? (
+                // eslint-disable-next-line @next/next/no-img-element -- tiny static SVG
+                <img src={avatarSrc(o.key as (typeof AVATARS)[number]["key"])} alt="" className="size-full rounded-full" />
+              ) : (
+                <Avatar name={name} className="size-full text-lg" />
+              )}
+              {on && (
+                <span className="absolute -bottom-0.5 -right-0.5 grid size-5 place-items-center rounded-full bg-ink text-inv">
+                  <Check className="size-3.5" strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

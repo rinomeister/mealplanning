@@ -51,6 +51,7 @@ export default async function TodayPage({
         select: {
           name: true,
           email: true,
+          avatar: true,
           targetKcal: true,
           targetProtein: true,
           targetFat: true,
@@ -137,7 +138,7 @@ export default async function TodayPage({
         </Link>
         <div className="ml-auto flex items-center gap-2">
           <DayCopyMenu date={date} />
-          <AvatarLink name={user?.name || user?.email} />
+          <AvatarLink name={user?.name || user?.email} avatar={user?.avatar} />
         </div>
       </header>
 
