@@ -149,8 +149,16 @@ export function MealBuilder({
     (initial?.ingredients ?? [])
       .filter((r) => r.name.trim() !== "")
       .map((r) => {
-        const p = products.find((x) => (r.barcode && x.barcode === r.barcode) || x.name === r.name);
-        return { ...r, portions: p ? productPortions(p) : [] };
+        const byCode = r.barcode ? products.find((x) => x.barcode === r.barcode) : undefined;
+        const p = byCode ?? products.find((x) => x.name === r.name);
+        const row = { ...r, portions: p ? productPortions(p) : [] };
+        // Repair rows saved by the old scan bug ("Unnamed product", no macros)
+        // from the product that was actually saved under that barcode.
+        if (byCode && !hasAnyMacro(r.per100g) && hasAnyMacro(byCode.per100g)) {
+          row.per100g = byCode.per100g;
+          if (r.name === "Unnamed product") row.name = byCode.name;
+        }
+        return row;
       }),
   );
   const [editRow, setEditRow] = useState<number | null>(null);
@@ -370,7 +378,7 @@ export function MealBuilder({
         <section aria-label="Ingredients" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <h2 className="t-cap">Ingredients · {ingredients.length}</h2>
-            {ingredients.length > 0 && <span className="text-xs text-ink-3">Tap an amount to edit</span>}
+            {ingredients.length > 0 && <span className="text-xs text-ink-3">Tap one to edit</span>}
           </div>
           {ingredients.length === 0 ? (
             <p className="card px-4 py-5 text-center text-sm text-ink-3">
@@ -385,40 +393,46 @@ export function MealBuilder({
                 const amount = `${row.qty || "–"} ${row.unit || ""}`.trim();
                 return (
                   <li key={i} className="py-2.5">
-                    <div className="flex min-h-11 items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold">{row.name}</span>
-                        <span className={cn("block text-[13px]", legacy ? "text-bad" : "text-ink-3")}>
-                          {legacy
-                            ? "no macros, not counted"
-                            : m
-                              ? `${fmtKcal(m.kcal)} kcal · ${fmtG(m.protein)} P${m.carbs > m.protein * 2 ? ` · ${fmtG(m.carbs)} C` : ""}`
-                              : "enter grams to count it"}
+                    <div className="flex min-h-11 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditRow(isEditing ? null : i)}
+                        aria-expanded={isEditing}
+                        aria-label={`Edit ${row.name}, ${amount}`}
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">{row.name}</span>
+                          <span className={cn("block text-[13px]", legacy ? "text-bad" : "text-ink-3")}>
+                            {legacy
+                              ? "no macros, not counted"
+                              : m
+                                ? `${fmtKcal(m.kcal)} kcal · Protein ${fmtG(m.protein)} g`
+                                : "enter grams to count it"}
+                          </span>
                         </span>
-                      </span>
-                      {isEditing ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIngredients((rows) => rows.filter((_, j) => j !== i));
-                            setEditRow(null);
-                          }}
-                          aria-label={`Remove ${row.name}`}
-                          className="grid size-11 place-items-center rounded-full text-ink-2"
-                        >
-                          <X className="size-5" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => !legacy && setEditRow(i)}
-                          disabled={legacy}
-                          aria-label={`Amount of ${row.name}: ${amount}. Edit`}
-                          className={cn("num h-10 shrink-0 rounded-full border-[1.5px] border-line px-3.5 text-[15px] font-semibold", legacy && "text-ink-3")}
-                        >
-                          {amount}
-                        </button>
-                      )}
+                        {!isEditing && (
+                          <span
+                            className={cn(
+                              "num flex h-10 shrink-0 items-center rounded-full border-[1.5px] border-line px-3.5 text-[15px] font-semibold",
+                              legacy && "text-ink-3",
+                            )}
+                          >
+                            {amount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIngredients((rows) => rows.filter((_, j) => j !== i));
+                          setEditRow((e) => (e === i ? null : e != null && e > i ? e - 1 : e));
+                        }}
+                        aria-label={`Remove ${row.name}`}
+                        className="-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-ink-2"
+                      >
+                        <X className="size-5" />
+                      </button>
                     </div>
                     {isEditing && (
                       <div className="mt-2 flex flex-wrap items-center gap-2">

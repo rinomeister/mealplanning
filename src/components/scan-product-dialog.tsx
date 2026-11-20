@@ -179,7 +179,8 @@ export function ScanProductDialog({
   }
 
   // Save corrected macros to our DB (source → "user") and update local state.
-  function saveEdit(): Promise<boolean> {
+  // Resolves with the saved values (state updates aren't visible to the caller yet), or null.
+  function saveEdit(): Promise<{ name: string; servingGrams: number | null; per100g: MealMacros } | null> {
     const nextName = editName.trim() || "Unnamed product";
     const sg = editServingGrams.trim() === "" ? null : parseDecimal(editServingGrams);
     const nextServingGrams = sg != null && Number.isFinite(sg) && sg > 0 ? sg : null;
@@ -204,10 +205,10 @@ export function ScanProductDialog({
           setServingGrams(nextServingGrams);
           setPer100g(nextMacros);
           setEditing(false);
-          resolve(true);
+          resolve({ name: nextName, servingGrams: nextServingGrams, per100g: nextMacros });
         } else {
           setMessage(res.error);
-          resolve(false);
+          resolve(null);
         }
       });
     });
@@ -220,17 +221,17 @@ export function ScanProductDialog({
       return;
     }
     startTransition(async () => {
-      if (editing) {
-        const ok = await saveEdit();
-        if (!ok) return;
-      }
+      // Use what was just saved: the state setters haven't re-rendered yet, so
+      // `name`/`per100g` here would still be the empty "not found" values.
+      const saved = editing ? await saveEdit() : { name, servingGrams, per100g };
+      if (!saved) return;
       const product: ScannedProduct = {
         barcode: code,
-        name: name || "Unnamed product",
+        name: saved.name || "Unnamed product",
         brand,
         servingLabel,
-        servingGrams,
-        per100g,
+        servingGrams: saved.servingGrams,
+        per100g: saved.per100g,
       };
       const ok = await onConfirm(product, g);
       if (ok) onClose();
