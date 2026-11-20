@@ -100,7 +100,7 @@ export function ProductConfirm({
   const per = product.per100g;
   const sub = [
     product.brand,
-    per.kcal != null ? `per 100 g: ${fmtKcal(per.kcal)} kcal${per.protein != null ? ` · ${fmtG(per.protein)} P` : ""}` : null,
+    per.kcal != null ? `per 100 g: ${fmtKcal(per.kcal)} kcal${per.protein != null ? ` · Protein ${fmtG(per.protein)} g` : ""}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

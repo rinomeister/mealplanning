@@ -152,7 +152,7 @@ export function EntryRow({
             </span>
             <span className="block truncate text-[13px] text-ink-3">
               {editing ? (
-                `live: ${fmtKcal(m.kcal)} kcal · ${fmtG(m.protein)} P`
+                `live: ${fmtKcal(m.kcal)} kcal · Protein ${fmtG(m.protein)} g`
               ) : (
                 <>
                   {amountText(entry)}
@@ -167,7 +167,7 @@ export function EntryRow({
             </span>
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-2">
               <MacroDot macro="protein" />
-              <span className="num">{fmtG(m.protein)}</span> P
+              Protein <span className="num">{fmtG(m.protein)} g</span>
             </span>
           </span>
         </button>

@@ -7,7 +7,7 @@ import { Check, ChevronRight, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MACROS_UI, fmtG, fmtKcal, type DayTotals, type GramMacro, type Targets } from "@/lib/macro-format";
 import { SLOT_LABELS, type SlotKey } from "@/lib/schemas";
-import { KcalRing, MacroBadge, MacroBar, barState } from "@/components/macro-ui";
+import { KcalRing, MacroDot, MacroBar, barState } from "@/components/macro-ui";
 import { useToast } from "@/components/toast";
 import { openAddSheet } from "@/components/add/add-sheet";
 import { SlotPickSheet } from "@/components/slot-pick-sheet";
@@ -40,7 +40,9 @@ function MacroRow({
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-baseline gap-1.5">
-        <MacroBadge macro={macro} className="self-center" />
+        <span className="self-center leading-none">
+          <MacroDot macro={macro} />
+        </span>
         <span className={cn("font-semibold", hero ? "text-[15px]" : "text-sm")}>{m.label}</span>
         <span className="ml-auto num">
           <span className={cn("font-semibold", hero ? "text-[17px]" : "text-[15px]", state === "over" && "text-bad")}>

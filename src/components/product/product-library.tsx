@@ -25,7 +25,7 @@ function rowLine(p: PickerProduct): string {
   const parts: string[] = [];
   if (p.brand) parts.push(p.brand);
   if (p.per100g.kcal != null) {
-    parts.push(`${fmtKcal(p.per100g.kcal)} kcal · ${fmtG(p.per100g.protein ?? 0)} P / 100 g`);
+    parts.push(`${fmtKcal(p.per100g.kcal)} kcal · Protein ${fmtG(p.per100g.protein ?? 0)} g / 100 g`);
   } else parts.push("no macros");
   const portions = (p.servingGrams ? 1 : 0) + p.portions.length;
   if (portions === 1) {
@@ -174,7 +174,7 @@ export function ProductLibrary({
                       className={cn("tag num shrink-0", d >= 10 ? "bg-pro-t text-ink" : "bg-surface-2 text-ink-2")}
                       title="Protein per 100 kcal"
                     >
-                      {sort === "density" ? `${fmtG(d)} P/100kcal` : fmtG(d)}
+                      {sort === "density" ? `Protein ${fmtG(d)} g / 100 kcal` : fmtG(d)}
                     </span>
                   )}
                 </Link>

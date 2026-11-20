@@ -207,9 +207,9 @@ export function MealPick({
             <b>Left today:</b>{" "}
             {[
               `${fmtKcal(Math.max(0, remaining.kcal))} kcal`,
-              remaining.protein != null ? `${fmtG(Math.max(0, remaining.protein))} P` : null,
-              remaining.carbs != null ? `${fmtG(Math.max(0, remaining.carbs))} C` : null,
-              remaining.fat != null ? `${fmtG(Math.max(0, remaining.fat))} F` : null,
+              remaining.protein != null ? `Protein ${fmtG(Math.max(0, remaining.protein))} g` : null,
+              remaining.carbs != null ? `Carbs ${fmtG(Math.max(0, remaining.carbs))} g` : null,
+              remaining.fat != null ? `Fat ${fmtG(Math.max(0, remaining.fat))} g` : null,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -270,8 +270,7 @@ export function MealPick({
                       {MACROS_UI.slice(0, isOpen ? 5 : 3).map((x) => (
                         <span key={x.key} className={cn("inline-flex items-center gap-1", x.cls)}>
                           <MacroDot macro={x.key} />
-                          <span className="num">{fmtG(m.per[x.key] ?? 0)}</span>
-                          {isOpen && ` ${x.letter}`}
+                          {x.label} <span className="num">{fmtG(m.per[x.key] ?? 0)} g</span>
                         </span>
                       ))}
                     </span>

@@ -334,7 +334,7 @@ export function ProductSearch({
                   const fav = favorites.includes(p.id);
                   const sub = [
                     p.per100g.kcal != null ? `${fmtKcal(p.per100g.kcal)} kcal` : "no macros",
-                    p.per100g.protein != null ? `${fmtG(p.per100g.protein)} P per 100 g` : null,
+                    p.per100g.protein != null ? `Protein ${fmtG(p.per100g.protein)} g per 100 g` : null,
                     l != null ? `last ${fmtG(l)} g` : p.portions[0] ? `1 ${p.portions[0].label} = ${fmtG(p.portions[0].grams)} g` : null,
                   ]
                     .filter(Boolean)
@@ -413,7 +413,7 @@ export function ProductSearch({
                         <span className="block truncate text-[13px] text-ink-3">
                           {[
                             h.per100g.kcal != null ? `${fmtKcal(h.per100g.kcal)} kcal` : null,
-                            h.per100g.protein != null ? `${fmtG(h.per100g.protein)} P per 100 g` : null,
+                            h.per100g.protein != null ? `Protein ${fmtG(h.per100g.protein)} g per 100 g` : null,
                             h.brand,
                           ]
                             .filter(Boolean)

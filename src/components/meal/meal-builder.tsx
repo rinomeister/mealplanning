@@ -17,6 +17,7 @@ import { FlowScreen } from "@/components/add/flow-screen";
 import { ScanProductDialog } from "@/components/scan-product-dialog";
 import { ProductPickerDialog } from "@/components/product-picker-dialog";
 import { createMealAction, createTagAction, updateMealAction } from "@/app/(app)/meals/actions";
+import { importOffProductAction } from "@/app/(app)/products/actions";
 import { useSaveShortcut } from "@/lib/use-save-shortcut";
 
 type TagItem = { id: string; name: string; color: string | null };
@@ -339,8 +340,8 @@ export function MealBuilder({
             <div className="mt-3 grid grid-cols-5 gap-2.5">
               {MACROS_UI.map((m) => (
                 <div key={m.key} className="min-w-0">
-                  <p className="mb-1 flex items-center gap-1 truncate text-[12px] font-semibold leading-none">
-                    {m.key === "protein" ? <span className="mb m-p">P</span> : m.letter}{" "}
+                  <p className="mb-0.5 truncate text-[11px] font-semibold leading-tight text-ink-2">{m.label}</p>
+                  <p className="mb-1 truncate text-[12px] font-semibold leading-none">
                     <span className="num">
                       {fmtG(shown[m.key])}
                       {m.key === "protein" ? " g" : ""}
@@ -515,7 +516,7 @@ export function MealBuilder({
               <p className="text-xs text-ink-3">So each {noun} is</p>
               <p>
                 <b className="num text-lg">{fmtG(servingGrams)} g</b> cooked · {fmtKcal((perServing.kcal / servingGrams) * 100)} kcal and{" "}
-                {fmtG((perServing.protein / servingGrams) * 100)} P per 100 g
+                Protein {fmtG((perServing.protein / servingGrams) * 100)} g per 100 g
               </p>
             </div>
           )}
@@ -536,7 +537,7 @@ export function MealBuilder({
                 {(["kcal", "protein"] as const).map((k) => (
                   <label key={k} className="flex min-w-0 flex-col gap-1.5">
                     <span className={cn(labelCls, "flex items-center gap-1.5")}>
-                      {k === "protein" && <span className="mb m-p">P</span>}
+                      {k === "protein" && <span className="mdot m-p" aria-hidden />}
                       {k === "kcal" ? "Calories" : "Protein"}
                     </span>
                     <input inputMode="decimal" value={manual[k]} onChange={(e) => setManual((v) => ({ ...v, [k]: e.target.value }))} className={field} />
@@ -547,7 +548,7 @@ export function MealBuilder({
                 {MACROS_UI.slice(1).map((m) => (
                   <label key={m.key} className="flex min-w-0 flex-col gap-1.5">
                     <span className={cn(labelCls, "flex items-center gap-1")}>
-                      <span className={cn("mb", m.cls)}>{m.letter}</span>
+                      <span className={cn("mdot", m.cls)} aria-hidden />
                       <span className="truncate">{m.label}</span>
                     </span>
                     <input
@@ -651,7 +652,24 @@ export function MealBuilder({
           title="Scan an ingredient"
           confirmLabel="Add ingredient"
           gramsLabel="How many grams in the recipe?"
-          onConfirm={(p, grams) => {
+          onConfirm={async (p, grams) => {
+            // Keep the product in the database (a plain Open Food Facts hit isn't
+            // saved yet; an edited one is left as is) and use the stored row.
+            const saved = await importOffProductAction({
+              barcode: p.barcode,
+              name: p.name,
+              brand: p.brand,
+              servingLabel: p.servingLabel,
+              servingGrams: p.servingGrams,
+              ...p.per100g,
+            }).catch(() => null);
+            if (saved?.ok) {
+              addProductRow(saved.product, grams);
+              // Reload the product list so it shows in "Add product" without a
+              // page reload (the form's own state is kept).
+              router.refresh();
+              return true;
+            }
             setIngredients((rows) => [
               ...rows,
               {

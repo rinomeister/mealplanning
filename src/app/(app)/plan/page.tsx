@@ -188,8 +188,8 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
         <h2 className="t-h2">{format(parseISO(selected), "EEE d")}</h2>
         <p className="num text-sm text-ink-2">
           <b className="text-ink">{fmtKcal(dayKcal)}</b>
-          {targets.kcal != null && ` / ${fmtKcal(targets.kcal)}`} · {fmtG(dayProtein)}
-          {targets.protein != null && ` / ${fmtG(targets.protein)}`} P
+          {targets.kcal != null && ` / ${fmtKcal(targets.kcal)}`} kcal · Protein {fmtG(dayProtein)}
+          {targets.protein != null && ` / ${fmtG(targets.protein)}`} g
         </p>
       </div>
       <MacroBar
@@ -216,7 +216,7 @@ export default async function PlanWeekPage({ searchParams }: { searchParams: Pro
                         {items.map((e) => e.meal?.name ?? e.product?.name ?? e.label ?? "Quick add").join(" + ")}
                       </span>
                       <span className="num block text-[13px] text-ink-3">
-                        {fmtKcal(kcal)} · {fmtG(protein)} P
+                        {fmtKcal(kcal)} kcal · Protein {fmtG(protein)} g
                         {items.every((e) => e.status === "EATEN") && " · eaten"}
                       </span>
                     </Link>

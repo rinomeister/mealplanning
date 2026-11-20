@@ -12,17 +12,19 @@ import type { Macros } from "@/lib/macros";
 
 /*
  * The macro language. Kcal is a ring whose centre shows what's left; every
- * gram macro is a bar with one colour and one letter, in the order P · C · F ·
- * S · Fi. Numbers stay ink — colour is only for bars, badges and dots, so a
+ * gram macro is a bar with one colour and its full name, in the order Protein ·
+ * Carbs · Fat · Sugar · Fiber (no single-letter labels). Numbers stay ink — colour is only for bars, badges and dots, so a
  * macro is never told apart by colour alone.
  */
 
-/** Letter badge: P · C · F · S · Fi. */
+/** Macro label: colour dot + full name ("● Protein"). Where a name is already
+ * shown beside it, use MacroDot instead. */
 export function MacroBadge({ macro, className }: { macro: GramMacro; className?: string }) {
   const m = MACRO_UI_BY_KEY[macro];
   return (
-    <span className={cn("mb", m.cls, className)} aria-hidden>
-      {m.letter}
+    <span className={cn("inline-flex min-w-0 items-center gap-1 text-[12px] font-semibold text-ink-2", className)}>
+      <MacroDot macro={macro} />
+      <span className="truncate">{m.label}</span>
     </span>
   );
 }
@@ -215,8 +217,8 @@ function MacroCell({
   const state = barState(macro, eaten, target);
   return (
     <div className="min-w-0">
+      <MacroBadge macro={macro} className="mb-0.5 flex" />
       <div className="mb-1 flex items-center gap-1.5">
-        <MacroBadge macro={macro} />
         <span className="num text-[15px] font-semibold">{fmtG(eaten)}</span>
         {target != null && <span className="text-xs text-ink-3">/{fmtG(target)}</span>}
         {state === "hit" && <Check className="size-3.5 text-good" aria-label="target hit" />}
@@ -252,8 +254,8 @@ export function MacroSummaryFull({
     <div className={cn("flex items-center gap-4", className)}>
       <KcalRing eaten={eaten.kcal} planned={planned.kcal} target={targets.kcal} />
       <div className="min-w-0 flex-1">
+        <MacroBadge macro="protein" className="mb-1 flex text-[13px]" />
         <div className="mb-1.5 flex items-center gap-1.5">
-          <MacroBadge macro="protein" />
           <span className="num text-[22px] font-semibold leading-none">{fmtG(eaten.protein)}</span>
           {pTarget != null && <span className="text-sm text-ink-3">/ {fmtG(pTarget)} g</span>}
           <span className="ml-auto text-sm font-semibold">
@@ -311,8 +313,8 @@ export function MacroStrip({
       <div className="grid grid-cols-5 gap-2.5">
         {MACROS_UI.map((m) => (
           <div key={m.key} className="min-w-0">
+            <p className="mb-0.5 truncate text-[11px] font-semibold leading-tight text-ink-2">{m.label}</p>
             <p className="mb-1 truncate text-[11px] font-semibold leading-none">
-              {m.letter}{" "}
               <span className="num">{fmtG(eaten[m.key])}</span>
               {m.key === "protein" && targets.protein != null && (
                 <span className="text-ink-3">/{fmtG(targets.protein)}</span>

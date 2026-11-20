@@ -226,7 +226,7 @@ export function SlotMenu({
             <p className="t-h2">{label}</p>
             {hasEntries && (
               <p className="text-sm text-ink-3">
-                <span className="num font-semibold text-ink">{fmtKcal(totals.kcal)}</span> kcal · {fmtG(totals.protein)} P
+                <span className="num font-semibold text-ink">{fmtKcal(totals.kcal)}</span> kcal · Protein {fmtG(totals.protein)} g
               </p>
             )}
           </div>

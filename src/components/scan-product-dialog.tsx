@@ -235,7 +235,7 @@ export function ScanProductDialog({
       };
       const ok = await onConfirm(product, g);
       if (ok) onClose();
-      else if (!message) setMessage("Couldn't save — try again.");
+      else setMessage((m) => m || "Couldn't save — try again.");
     });
   }
 

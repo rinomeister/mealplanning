@@ -8,7 +8,7 @@ import { fmtKcal } from "@/lib/macro-format";
 import { PROFILE_FIELDS, TARGET_KEYS, pcfKcal, type ProfileField } from "@/lib/profile-fields";
 import { Button } from "@/components/ui/button";
 import { FlowScreen } from "@/components/add/flow-screen";
-import { MacroBadge } from "@/components/macro-ui";
+import { MacroDot } from "@/components/macro-ui";
 import { useToast } from "@/components/toast";
 import { updateProfileFieldAction } from "@/app/(app)/me/actions";
 
@@ -127,7 +127,7 @@ export function EditField({ field, values, weightKg }: { field: ProfileField; va
         }}
       >
         <label htmlFor="field" className="flex items-center gap-2 text-[15px] font-semibold text-ink-2">
-          {isMacro(field) && <MacroBadge macro={field} />}
+          {isMacro(field) && <MacroDot macro={field} />}
           {def.label}
         </label>
         <div className="flex h-16 items-center rounded-[14px] border-2 border-ink bg-surface px-4 focus-within:shadow-[0_0_0_4px_var(--track)]">

@@ -4,7 +4,7 @@ import { MACROS_UI, fmtG, fmtKcal, type Targets } from "@/lib/macro-format";
 import type { Macros } from "@/lib/macros";
 import type { ProgressDay, WeighIn } from "@/lib/progress";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
-import { MacroBadge, MacroBar, barState } from "@/components/macro-ui";
+import { MacroDot, MacroBar, barState } from "@/components/macro-ui";
 
 /**
  * Protein per day. Solid = target hit, faded = missed, hatched = today so far.
@@ -100,7 +100,7 @@ export function AveragesList({ avg, targets }: { avg: Macros; targets: Targets }
         return (
           <li key={m.key} className="grid grid-cols-[6.5rem_1fr_6rem] items-center gap-3">
             <span className="flex items-center gap-2">
-              <MacroBadge macro={m.key} />
+              <MacroDot macro={m.key} />
               {m.label}
             </span>
             <MacroBar macro={m.key} eaten={v} target={t} />

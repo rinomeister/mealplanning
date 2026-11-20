@@ -8,7 +8,7 @@ import { MACROS_UI, fmtKcal } from "@/lib/macro-format";
 import { PROFILE_FIELDS, pcfKcal } from "@/lib/profile-fields";
 import { kgToDisplay, weightLabel, type UnitSystem } from "@/lib/units";
 import { BackButton } from "@/components/back-button";
-import { MacroBadge } from "@/components/macro-ui";
+import { MacroDot } from "@/components/macro-ui";
 import { ThemeSetting } from "@/components/theme";
 import { ScannerEngineName, UnitsSetting, WelcomeCard } from "@/components/me/me-client";
 import { signOutAction } from "../actions";
@@ -90,7 +90,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
           {MACROS_UI.map((m) => (
             <li key={m.key}>
               <Link href={`/me/edit/${m.key}`} className={row}>
-                <MacroBadge macro={m.key} />
+                <MacroDot macro={m.key} />
                 <span className="flex-1">{PROFILE_FIELDS[m.key].label}</span>
                 <Val v={t[m.key] != null ? `${t[m.key]} g` : null} />
               </Link>

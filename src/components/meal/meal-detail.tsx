@@ -249,7 +249,7 @@ export function MealDetail({
                 <br />
                 {amount && (
                   <b>
-                    {fmtG(amount.servings)} {plural(amount.servings, n)} · {fmtKcal(scaled("kcal"))} kcal · {fmtG(scaled("protein"))} P
+                    {fmtG(amount.servings)} {plural(amount.servings, n)} · {fmtKcal(scaled("kcal"))} kcal · Protein {fmtG(scaled("protein"))} g
                   </b>
                 )}
               </p>
@@ -258,7 +258,7 @@ export function MealDetail({
             <div className="flex items-center gap-3">
               <Stepper value={servingsStr} onChange={setServingsStr} step={0.5} min={0.5} label={`${n}s`} className="w-40 shrink-0" />
               <p className="min-w-0 text-sm font-semibold">
-                {amount && `${fmtKcal(scaled("kcal"))} kcal · ${fmtG(scaled("protein"))} P`}
+                {amount && `${fmtKcal(scaled("kcal"))} kcal · Protein ${fmtG(scaled("protein"))} g`}
               </p>
             </div>
           )}

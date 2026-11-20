@@ -315,7 +315,7 @@ export function ProductForm({
             </label>
             <label className="flex min-w-0 flex-col gap-1.5">
               <span className={cn(labelCls, "flex items-center gap-1.5")}>
-                <span className="mb m-p">P</span> Protein
+                <span className="mdot m-p" aria-hidden /> Protein
               </span>
               <span className="relative">
                 <input inputMode="decimal" enterKeyHint="next" value={vals.protein} onChange={(e) => setVals((v) => ({ ...v, protein: e.target.value }))} className={cn(field, "pr-9")} />
@@ -327,7 +327,7 @@ export function ProductForm({
             {SMALL_FIELDS.map((f, i) => (
               <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
                 <span className={cn(labelCls, "flex items-center gap-1")}>
-                  <span className={cn("mb", f.cls)}>{f.letter}</span>
+                  <span className={cn("mdot", f.cls)} aria-hidden />
                   <span className="truncate">{f.label}</span>
                 </span>
                 <input
@@ -346,7 +346,7 @@ export function ProductForm({
             <div className="rounded-[14px] bg-surface-2 px-3.5 py-2.5 text-[13px]">
               Saved as{" "}
               <b>
-                per 100 g: {fmtKcal(per100.kcal)} kcal · {fmtG(per100.protein ?? 0)} P · {fmtG(per100.carbs ?? 0)} C · {fmtG(per100.fat ?? 0)} F
+                per 100 g: {fmtKcal(per100.kcal)} kcal · Protein {fmtG(per100.protein ?? 0)} g · Carbs {fmtG(per100.carbs ?? 0)} g · Fat {fmtG(per100.fat ?? 0)} g
               </b>
             </div>
           )}

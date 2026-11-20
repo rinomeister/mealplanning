@@ -179,7 +179,7 @@ export function QuickAddForm({
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-2">
-              <span className="mb m-p">P</span> Protein
+              <span className="mdot m-p" aria-hidden /> Protein
             </span>
             <span className="relative">
               <input inputMode="decimal" {...input("protein", "pr-9")} />
@@ -191,7 +191,7 @@ export function QuickAddForm({
           {MACRO_FIELDS.map((f) => (
             <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
               <span className="flex items-center gap-1 text-[13px] font-semibold text-ink-2">
-                <span className={cn("mb", f.cls)}>{f.letter}</span>
+                <span className={cn("mdot", f.cls)} aria-hidden />
                 <span className="truncate">{f.label}</span>
               </span>
               <input inputMode="decimal" aria-label={`${f.label} grams`} {...input(f.key)} />

@@ -96,7 +96,7 @@ export function PlanWeekGrid({
                 <span className="block h-full rounded-full bg-kcal" style={{ width: `${frac * 100}%` }} />
               </span>
               <span className="num truncate text-xs text-ink-3">
-                {d.has ? `${fmtKcal(d.kcal)} · ${fmtG(d.protein)} P` : "empty"}
+                {d.has ? `${fmtKcal(d.kcal)} kcal · Protein ${fmtG(d.protein)} g` : "empty"}
               </span>
             </Link>
           );
@@ -148,7 +148,7 @@ export function PlanWeekGrid({
                     >
                       <span className="line-clamp-2 text-sm font-semibold leading-snug">{cell.names.join(" + ")}</span>
                       <span className="num text-xs text-ink-3">
-                        {fmtKcal(cell.kcal)} · {fmtG(cell.protein)} P{cell.eaten && " · eaten"}
+                        {fmtKcal(cell.kcal)} kcal · Protein {fmtG(cell.protein)} g{cell.eaten && " · eaten"}
                       </span>
                     </Link>
                   ) : (
