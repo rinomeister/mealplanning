@@ -144,3 +144,15 @@ export function fmtMacro(value: number, kind: "kcal" | "g" = "g"): string {
   const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
 }
+
+/** An ingredient measured in servings (a meal or quick add folded into a meal)
+ * carries per-serving macros; any other unit means per 100 g/ml. */
+export function isServingUnit(unit: string | null | undefined): boolean {
+  return /^servings?$/i.test((unit ?? "").trim());
+}
+
+/** One meal ingredient's contribution, or null when it can't be counted. */
+export function ingredientMacros(row: MealMacros & { qty: number | null; unit: string | null }): Macros | null {
+  if (!hasAnyMacro(row) || row.qty == null || !(row.qty > 0)) return null;
+  return isServingUnit(row.unit) ? scaleMacros(row, row.qty) : scaleGrams(row, row.qty);
+}

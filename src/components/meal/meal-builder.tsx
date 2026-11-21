@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, GripVertical, Loader2, Plus, ScanBarcode, Search, Tag, X } from "lucide-react";
 import { cn, parseDecimal } from "@/lib/utils";
-import { addMacros, scaleGrams, ZERO_MACROS, type Macros, type MealMacros } from "@/lib/macros";
+import { addMacros, isServingUnit, scaleGrams, scaleMacros, ZERO_MACROS, type Macros, type MealMacros } from "@/lib/macros";
 import { MACROS_UI, fmtG, fmtKcal, type Targets } from "@/lib/macro-format";
 import type { PickerProduct, Portion } from "@/lib/products";
 import type { Usage } from "@/lib/usage";
@@ -27,8 +27,10 @@ export type IngredientRow = {
   qty: string;
   unit: string;
   note: string;
-  /** Set when scanned from a barcode; macros are per 100 g/ml, qty is grams. */
+  /** Set when scanned from a barcode. */
   barcode: string | null;
+  /** Per 100 g/ml when qty is grams; per serving when the unit is "serving"
+   * (a meal or quick add folded in by "Save as meal"). */
   per100g: MealMacros | null;
   /** The product's portions, for the amount chips (not saved). */
   portions?: Portion[];
@@ -68,10 +70,34 @@ function num(s: string): number | null {
   const n = parseDecimal(s);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
+const isServingRow = (r: IngredientRow) => isServingUnit(r.unit);
 function rowMacros(r: IngredientRow): Macros | null {
   if (!hasAnyMacro(r.per100g)) return null;
-  const g = num(r.qty);
-  return g && g > 0 ? scaleGrams(r.per100g, g) : null;
+  const q = num(r.qty);
+  if (!q || q <= 0) return null;
+  return isServingRow(r) ? scaleMacros(r.per100g, q) : scaleGrams(r.per100g, q);
+}
+function sumRows(rows: IngredientRow[]): Macros {
+  return rows.reduce<Macros>((acc, r) => {
+    const m = rowMacros(r);
+    return m ? addMacros(acc, m) : acc;
+  }, { ...ZERO_MACROS });
+}
+/**
+ * A saved "entered by hand" flag that is really just the ingredient totals
+ * (every row counted, numbers match): older saves set it whenever a meal had
+ * no countable rows yet, and "Save as meal" always did. Treat those as "From
+ * ingredients", or the totals never move when ingredients change.
+ */
+function staleManual(initial: MealFormInitial, rows: IngredientRow[]): boolean {
+  if (rows.length === 0 || !rows.every((r) => rowMacros(r))) return false;
+  const serves = num(initial.serves) || 1;
+  const batch = sumRows(rows);
+  return MANUAL_KEYS.every((k) => {
+    const stored = num(initial[k]) ?? 0;
+    const computed = batch[k] / serves;
+    return Math.abs(stored - computed) <= (k === "kcal" ? 1.5 : 0.6);
+  });
 }
 /** "1 bowl" → "bowl". */
 function servingNoun(label: string): string {
@@ -145,7 +171,6 @@ export function MealBuilder({
     sugar: initial?.sugar ?? "",
     fiber: initial?.fiber ?? "",
   });
-  const [macrosManual, setMacrosManual] = useState(initial?.macrosManual ?? false);
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() =>
     (initial?.ingredients ?? [])
       .filter((r) => r.name.trim() !== "")
@@ -162,6 +187,10 @@ export function MealBuilder({
         return row;
       }),
   );
+  // Only an explicit, still-meaningful "entered by hand" survives loading.
+  const [macrosManual, setMacrosManual] = useState(
+    () => !!initial?.macrosManual && ingredients.some((r) => rowMacros(r)) && !staleManual(initial, ingredients),
+  );
   const [editRow, setEditRow] = useState<number | null>(null);
   const [view, setView] = useState<"serving" | "pot">("serving");
   const [open, setOpen] = useState({ servings: !initial, macros: false, steps: false });
@@ -171,6 +200,14 @@ export function MealBuilder({
   const [focusStep, setFocusStep] = useState<string | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
   const dragId = useRef<string | null>(null);
+
+  // Adding or removing an ingredient means the totals should follow the
+  // ingredients again; keeping hand-entered numbers would silently ignore it.
+  function setRows(next: IngredientRow[]) {
+    setIngredients(next);
+    if (macrosManual && next.length > 0 && next.every((r) => rowMacros(r))) setMacrosManual(false);
+  }
+  const appendRow = (row: IngredientRow) => setRows([...ingredients, row]);
 
   useEffect(() => {
     if (!focusStep) return;
@@ -182,28 +219,22 @@ export function MealBuilder({
   }
 
   function addProductRow(p: PickerProduct, grams?: number) {
-    setIngredients((rows) => [
-      ...rows,
-      {
-        name: p.name,
-        qty: String(grams ?? productUsage?.last[p.id]?.grams ?? p.servingGrams ?? 100),
-        unit: "g",
-        note: "",
-        barcode: p.barcode,
-        per100g: hasAnyMacro(p.per100g) ? p.per100g : null,
-        portions: productPortions(p),
-      },
-    ]);
+    appendRow({
+      name: p.name,
+      qty: String(grams ?? productUsage?.last[p.id]?.grams ?? p.servingGrams ?? 100),
+      unit: "g",
+      note: "",
+      barcode: p.barcode,
+      per100g: hasAnyMacro(p.per100g) ? p.per100g : null,
+      portions: productPortions(p),
+    });
   }
   const updateRow = (i: number, patch: Partial<IngredientRow>) =>
     setIngredients((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   // ---- totals
   const servesNum = num(serves) && num(serves)! > 0 ? num(serves)! : 1;
-  const batch = ingredients.reduce<Macros>((acc, r) => {
-    const m = rowMacros(r);
-    return m ? addMacros(acc, m) : acc;
-  }, { ...ZERO_MACROS });
+  const batch = sumRows(ingredients);
   const hasCounted = ingredients.some((r) => hasAnyMacro(r.per100g));
   const manualMode = macrosManual || !hasCounted;
   const perServing: Macros = manualMode
@@ -356,9 +387,16 @@ export function MealBuilder({
                 </div>
               ))}
             </div>
-            {manualMode && (hasCounted || Object.values(manual).some((v) => v.trim())) && (
+            {manualMode && hasCounted ? (
+              <div className="mt-2 flex items-center gap-2">
+                <p className="flex-1 text-xs text-ink-3">Entered by hand, so ingredient changes don&apos;t change these.</p>
+                <button type="button" className="chip sm shrink-0" onClick={() => setMacrosManual(false)}>
+                  Use ingredient totals
+                </button>
+              </div>
+            ) : manualMode && Object.values(manual).some((v) => v.trim()) ? (
               <p className="mt-2 text-xs text-ink-3">Macros entered by hand</p>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -409,7 +447,7 @@ export function MealBuilder({
                               ? "no macros, not counted"
                               : m
                                 ? `${fmtKcal(m.kcal)} kcal · Protein ${fmtG(m.protein)} g`
-                                : "enter grams to count it"}
+                                : isServingRow(row) ? "enter servings to count it" : "enter grams to count it"}
                           </span>
                         </span>
                         {!isEditing && (
@@ -426,7 +464,7 @@ export function MealBuilder({
                       <button
                         type="button"
                         onClick={() => {
-                          setIngredients((rows) => rows.filter((_, j) => j !== i));
+                          setRows(ingredients.filter((_, j) => j !== i));
                           setEditRow((e) => (e === i ? null : e != null && e > i ? e - 1 : e));
                         }}
                         aria-label={`Remove ${row.name}`}
@@ -442,13 +480,13 @@ export function MealBuilder({
                             autoFocus
                             inputMode="decimal"
                             enterKeyHint="done"
-                            aria-label={`Grams of ${row.name}`}
+                            aria-label={`${isServingRow(row) ? "Servings" : "Grams"} of ${row.name}`}
                             value={row.qty}
                             onChange={(e) => updateRow(i, { qty: e.target.value })}
                             onKeyDown={(e) => e.key === "Enter" && setEditRow(null)}
                             className={cn(field, "h-12 border-2 border-ink pr-8")}
                           />
-                          <span className="pointer-events-none absolute right-3 top-0 flex h-12 items-center text-sm text-ink-3">g</span>
+                          <span className="pointer-events-none absolute right-3 top-0 flex h-12 items-center text-sm text-ink-3">{isServingRow(row) ? "srv" : "g"}</span>
                         </span>
                         <span className="contents">
                           {(row.portions ?? []).slice(0, 2).map((p) => (
@@ -670,18 +708,15 @@ export function MealBuilder({
               router.refresh();
               return true;
             }
-            setIngredients((rows) => [
-              ...rows,
-              {
-                name: p.name,
-                qty: String(grams),
-                unit: "g",
-                note: "",
-                barcode: p.barcode,
-                per100g: hasAnyMacro(p.per100g) ? p.per100g : null,
-                portions: [],
-              },
-            ]);
+            appendRow({
+              name: p.name,
+              qty: String(grams),
+              unit: "g",
+              note: "",
+              barcode: p.barcode,
+              per100g: hasAnyMacro(p.per100g) ? p.per100g : null,
+              portions: [],
+            });
             return true;
           }}
           onClose={() => setDialog(null)}

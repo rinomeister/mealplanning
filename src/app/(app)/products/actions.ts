@@ -15,6 +15,7 @@ import {
   countUpcomingEntries,
   deleteProductKeepingHistory,
   refreshUpcomingEntries,
+  syncMealsUsingProduct,
 } from "@/lib/entries";
 import { toPickerProduct, PICKER_PRODUCT_SELECT } from "@/lib/products";
 import type { PickerProduct } from "@/lib/products";
@@ -30,6 +31,8 @@ function revalidateProducts() {
   revalidatePath("/library/products");
   revalidatePath("/today");
   revalidatePath("/library/meals", "layout");
+  // Meals holding the product are recomputed (syncMealsUsingProduct).
+  revalidatePath("/meals", "layout");
 }
 
 /**
@@ -47,7 +50,7 @@ export async function createProductAction(
   const { portions, barcode, ...data } = parsed.data;
   // A barcode we already hold: the typed-in values replace that row's.
   const existing = barcode
-    ? await prisma.product.findUnique({ where: { barcode }, select: { id: true } })
+    ? await prisma.product.findUnique({ where: { barcode }, select: { id: true, name: true, barcode: true } })
     : null;
   if (existing) {
     await prisma.$transaction([
@@ -58,6 +61,7 @@ export async function createProductAction(
       }),
     ]);
     await refreshUpcomingEntries({ productId: existing.id }, data);
+    await syncMealsUsingProduct(existing, data);
     revalidateProducts();
     return { ok: true, id: existing.id };
   }
@@ -87,7 +91,7 @@ export async function updateProductAction(
   if (!parsed.success) return { ok: false, error: "Invalid product details." };
 
   const { id, portions, ...data } = parsed.data;
-  const exists = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  const exists = await prisma.product.findUnique({ where: { id }, select: { id: true, name: true, barcode: true } });
   if (!exists) return { ok: false, error: "Product not found." };
   if (data.barcode) {
     const clash = await prisma.product.findUnique({ where: { barcode: data.barcode }, select: { id: true } });
@@ -106,6 +110,7 @@ export async function updateProductAction(
     }),
   ]);
   await refreshUpcomingEntries({ productId: id }, data);
+  await syncMealsUsingProduct(exists, data);
 
   revalidateProducts();
   revalidatePath("/plan", "layout");

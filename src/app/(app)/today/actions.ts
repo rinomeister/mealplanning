@@ -28,8 +28,9 @@ import {
   pickMacros,
   sumDayEntries,
 } from "@/lib/macros";
-import { addDaysKey, dbDateToKey, formatHuman, keyToDbDate, todayKey } from "@/lib/dates";
-import { copyEntries, nextPosition, refreshUpcomingEntries } from "@/lib/entries";
+import { addDaysKey, dbDateToKey, formatHuman, keyToDbDate } from "@/lib/dates";
+import { userNow } from "@/lib/user-time";
+import { copyEntries, nextPosition, refreshUpcomingEntries, syncMealsUsingProduct } from "@/lib/entries";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 type CreateResult = { ok: true; id: string } | { ok: false; error: string };
@@ -80,12 +81,15 @@ export async function upsertProductMacrosAction(
     where: { barcode },
     create: { barcode, ...data },
     update: data,
-    select: MACRO_SELECT,
+    select: { ...MACRO_SELECT, name: true },
   });
   await refreshUpcomingEntries({ productId: product.id }, product);
+  await syncMealsUsingProduct({ name: product.name, barcode }, product);
 
   revalidatePath("/today");
   revalidatePath("/scan");
+  revalidatePath("/meals", "layout");
+  revalidatePath("/library/meals");
   return { ok: true };
 }
 
@@ -265,10 +269,9 @@ export async function setGramsAction(
 
 /**
  * Turn everything currently logged in a day+slot into a reusable meal. Products
- * become scanned-style ingredients (barcode + per-100 g macros) so the meal
- * stays editable; the meal's own macros are locked to the section's exact totals
- * — this stays correct even when the section also contains other meals or quick
- * adds, which have no per-100 g representation to recompute from.
+ * become scanned-style ingredients (barcode + per-100 g macros); meals and quick
+ * adds become "serving" rows with per-serving macros. Every row counts, so the
+ * meal's totals equal the section's and keep following its ingredients.
  */
 export async function createMealFromSlotAction(
   input: CreateMealFromSlotInput,
@@ -309,11 +312,14 @@ export async function createMealFromSlotAction(
         ...pickMacros(e),
       };
     }
+    // Meals and quick adds keep their per-serving macros, so every row counts
+    // and the new meal's totals follow its ingredients when it is edited.
     return {
       name: e.meal?.name ?? e.label ?? "Quick add",
       qty: e.servings,
       unit: "serving",
       position: i,
+      ...pickMacros(e),
     };
   });
 
@@ -322,7 +328,7 @@ export async function createMealFromSlotAction(
       userId,
       name,
       serves: 1,
-      macrosManual: true,
+      macrosManual: false,
       kcal: roundMacro(totals.kcal, "kcal"),
       protein: roundMacro(totals.protein, "g"),
       fat: roundMacro(totals.fat, "g"),
@@ -458,7 +464,7 @@ export async function setEntriesStatusAction(
   const userId = await requireUserId();
   if (ids.length === 0) return { ok: true };
   await prisma.planEntry.updateMany({ where: { id: { in: ids }, userId }, data: { status } });
-  revalidateDay(todayKey());
+  revalidateDay((await userNow()).today);
   return { ok: true };
 }
 
@@ -467,7 +473,7 @@ export async function removeEntriesAction(ids: string[]): Promise<ActionResult> 
   const userId = await requireUserId();
   if (ids.length === 0) return { ok: true };
   await prisma.planEntry.deleteMany({ where: { id: { in: ids }, userId } });
-  revalidateDay(todayKey());
+  revalidateDay((await userNow()).today);
   // Undo often calls this from a toast; refresh the page in this same response.
   refresh();
   return { ok: true };

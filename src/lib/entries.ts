@@ -1,7 +1,22 @@
 import { prisma } from "@/lib/prisma";
-import { gramsPerServing, pickMacros, type MealMacros } from "@/lib/macros";
-import { dbDateToKey, keyToDbDate, todayKey, type DateKey } from "@/lib/dates";
+import {
+  addMacros,
+  gramsPerServing,
+  ingredientMacros,
+  isServingUnit,
+  pickMacros,
+  ZERO_MACROS,
+  type Macros,
+  type MealMacros,
+} from "@/lib/macros";
+import { dbDateToKey, keyToDbDate, type DateKey } from "@/lib/dates";
+import { userNow } from "@/lib/user-time";
 import type { SlotKey } from "@/lib/schemas";
+
+/** Midnight of the user's today (their time zone, not the server's). */
+async function userTodayDb(): Promise<Date> {
+  return keyToDbDate((await userNow()).today);
+}
 
 /** Next free position in a day+slot, so new entries append rather than collide. */
 export async function nextPosition(userId: string, date: DateKey, slot: SlotKey) {
@@ -23,7 +38,7 @@ export async function refreshUpcomingEntries(
   macros: MealMacros,
 ) {
   await prisma.planEntry.updateMany({
-    where: { ...ref, date: { gte: keyToDbDate(todayKey()) } },
+    where: { ...ref, date: { gte: await userTodayDb() } },
     data: pickMacros(macros),
   });
 }
@@ -38,7 +53,7 @@ export async function rescaleUpcomingBatchEntries(
   mealId: string,
   meal: { cookedGrams: number | null; serves: number },
 ) {
-  const today = keyToDbDate(todayKey());
+  const today = await userTodayDb();
   const gps = gramsPerServing(meal);
   if (gps == null) {
     await prisma.planEntry.updateMany({
@@ -146,7 +161,7 @@ export async function countUpcomingEntries(
   ref: { mealId: string } | { productId: string },
   userId?: string,
 ): Promise<number> {
-  const today = keyToDbDate(todayKey());
+  const today = await userTodayDb();
   return prisma.planEntry.count({
     where: {
       ...ref,
@@ -167,7 +182,7 @@ export async function deleteMealKeepingHistory(meal: {
   id: string;
   name: string;
 }): Promise<number> {
-  const today = keyToDbDate(todayKey());
+  const today = await userTodayDb();
   const results = await prisma.$transaction([
     prisma.$executeRaw`
       UPDATE "PlanEntry"
@@ -192,7 +207,7 @@ export async function deleteProductKeepingHistory(product: {
   id: string;
   name: string;
 }): Promise<number> {
-  const today = keyToDbDate(todayKey());
+  const today = await userTodayDb();
   const results = await prisma.$transaction([
     prisma.$executeRaw`
       UPDATE "PlanEntry"
@@ -209,4 +224,82 @@ export async function deleteProductKeepingHistory(product: {
     prisma.product.delete({ where: { id: product.id } }),
   ]);
   return results[1].count;
+}
+
+const MEAL_MACRO_KEYS = ["kcal", "protein", "fat", "carbs", "sugar", "fiber"] as const;
+type IngredientForTotals = MealMacros & { qty: number | null; unit: string | null };
+
+function sumIngredients(rows: IngredientForTotals[]): Macros {
+  return rows.reduce<Macros>((acc, r) => {
+    const m = ingredientMacros(r);
+    return m ? addMacros(acc, m) : acc;
+  }, { ...ZERO_MACROS });
+}
+
+/**
+ * Whether a meal's stored macros follow its ingredients. A meal marked "entered
+ * by hand" still follows them when the stored numbers are just the ingredient
+ * totals (older saves set the flag whenever nothing was countable yet).
+ */
+function followsIngredients(
+  meal: MealMacros & { macrosManual: boolean; serves: number },
+  rows: IngredientForTotals[],
+): boolean {
+  if (rows.length === 0 || !rows.some((r) => ingredientMacros(r))) return false;
+  if (!meal.macrosManual) return true;
+  if (!rows.every((r) => ingredientMacros(r))) return false;
+  const batch = sumIngredients(rows);
+  const serves = meal.serves > 0 ? meal.serves : 1;
+  return MEAL_MACRO_KEYS.every(
+    (k) => Math.abs((meal[k] ?? 0) - batch[k] / serves) <= (k === "kcal" ? 1.5 : 0.6),
+  );
+}
+
+/**
+ * After a product's macros change, update the copies held by meal ingredients
+ * (matched by barcode, or by name for hand-entered foods with no barcode) and
+ * recompute those meals' totals, which then flow into today's and future plans.
+ * Meals whose macros were genuinely entered by hand keep them.
+ */
+export async function syncMealsUsingProduct(
+  before: { name: string; barcode: string | null },
+  after: MealMacros & { name: string },
+) {
+  const where = before.barcode
+    ? { barcode: before.barcode }
+    : { barcode: null, name: before.name, NOT: { unit: { in: ["serving", "servings"] } } };
+  const hits = await prisma.ingredient.findMany({ where, select: { mealId: true } });
+  if (hits.length === 0) return;
+  const mealIds = [...new Set(hits.map((h) => h.mealId))];
+
+  const macroSelect = { kcal: true, protein: true, fat: true, carbs: true, sugar: true, fiber: true } as const;
+  const meals = await prisma.meal.findMany({
+    where: { id: { in: mealIds } },
+    select: {
+      id: true,
+      serves: true,
+      macrosManual: true,
+      ...macroSelect,
+      ingredients: { select: { qty: true, unit: true, barcode: true, name: true, ...macroSelect } },
+    },
+  });
+  // Decide before the update: whether each meal follows its ingredients.
+  const following = new Set(meals.filter((m) => followsIngredients(m, m.ingredients)).map((m) => m.id));
+
+  await prisma.ingredient.updateMany({ where, data: { name: after.name, ...pickMacros(after) } });
+
+  const macros = pickMacros(after);
+  const matches = (r: { barcode: string | null; name: string; unit: string | null }) =>
+    before.barcode ? r.barcode === before.barcode : r.barcode == null && r.name === before.name && !isServingUnit(r.unit);
+  for (const meal of meals) {
+    if (!following.has(meal.id)) continue;
+    const rows = meal.ingredients.map((r) => (matches(r) ? { ...r, ...macros } : r));
+    const batch = sumIngredients(rows);
+    const serves = meal.serves > 0 ? meal.serves : 1;
+    const perServing = Object.fromEntries(
+      MEAL_MACRO_KEYS.map((k) => [k, Math.round((batch[k] / serves) * 100) / 100]),
+    ) as MealMacros;
+    await prisma.meal.update({ where: { id: meal.id }, data: { ...perServing, macrosManual: false } });
+    await refreshUpcomingEntries({ mealId: meal.id }, perServing);
+  }
 }
