@@ -53,6 +53,26 @@ export function MacroLine({ macros, className }: { macros: Macros; className?: s
   );
 }
 
+/** All six numbers for one item, 3 × 2: Calories, then each gram macro with its name. */
+export function MacroGrid({ macros, className }: { macros: Macros; className?: string }) {
+  return (
+    <dl className={cn("grid grid-cols-3 gap-1.5", className)}>
+      <div className="min-w-0 rounded-[12px] bg-surface-2 px-2.5 py-1.5">
+        <dt className="truncate text-[12px] font-semibold text-ink-2">Calories</dt>
+        <dd className="num text-[15px] font-semibold">{fmtKcal(macros.kcal)} kcal</dd>
+      </div>
+      {MACROS_UI.map((m) => (
+        <div key={m.key} className="min-w-0 rounded-[12px] bg-surface-2 px-2.5 py-1.5">
+          <dt>
+            <MacroBadge macro={m.key} />
+          </dt>
+          <dd className="num text-[15px] font-semibold">{fmtG(macros[m.key])} g</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 type BarState = "none" | "under" | "hit" | "over";
 
 /** Where a macro stands against its target. */

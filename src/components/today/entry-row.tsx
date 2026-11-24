@@ -6,7 +6,7 @@ import { cn, parseDecimal } from "@/lib/utils";
 import { fmtG, fmtKcal, macrosOf } from "@/lib/macro-format";
 import { portionChoices } from "@/lib/products";
 import { useLongPress } from "@/lib/use-long-press";
-import { MacroDot } from "@/components/macro-ui";
+import { MacroDot, MacroGrid } from "@/components/macro-ui";
 import { KeyboardBar } from "@/components/keyboard-bar";
 import { Button } from "@/components/ui/button";
 import type { DayEntry } from "@/lib/day-entry";
@@ -220,6 +220,7 @@ export function EntryRow({
               <MoreHorizontal className="size-5" />
             </button>
           </div>
+          {entry.hasMacros && <MacroGrid macros={m} className="mt-2.5 pl-10" />}
           <KeyboardBar>
             <Button type="button" variant="secondary" size="lg" onPointerDown={(e) => e.preventDefault()} onClick={() => onEdit(false)}>
               Cancel

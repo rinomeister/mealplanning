@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, Image as ImageIcon, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { scanLabel } from "@/lib/label-scan";
 import { cn, parseDecimal } from "@/lib/utils";
 import { fmtG, fmtKcal } from "@/lib/macro-format";
@@ -111,7 +111,8 @@ export function ProductForm({
   const [editingPortion, setEditingPortion] = useState<number | null>(null);
   const [busy, setBusy] = useState<null | "save" | "add">(null);
   const [error, setError] = useState("");
-  const photoInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const galleryInput = useRef<HTMLInputElement>(null);
   const [scan, setScan] = useState<{ state: "idle" | "busy" | "done" } | { state: "error"; message: string }>({ state: "idle" });
 
   async function onLabelPhoto(file: File | undefined) {
@@ -303,32 +304,45 @@ export function ProductForm({
         </div>
 
         <div className="flex flex-col gap-2">
-          <input
-            ref={photoInput}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              void onLabelPhoto(e.target.files?.[0]);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            disabled={scan.state === "busy"}
-            onClick={() => photoInput.current?.click()}
-            className="press flex h-[52px] items-center justify-center gap-2 rounded-btn bg-surface-2 font-semibold"
-          >
-            {scan.state === "busy" ? (
-              <>
-                <Loader2 className="size-5 animate-spin" /> Reading the label…
-              </>
-            ) : (
-              <>
-                <Camera className="size-5" /> {scan.state === "done" ? "Scan the label again" : "Scan the nutrition label"}
-              </>
-            )}
-          </button>
+          {[cameraInput, galleryInput].map((ref, i) => (
+            <input
+              key={i}
+              ref={ref}
+              type="file"
+              accept="image/*"
+              capture={i === 0 ? "environment" : undefined}
+              className="hidden"
+              onChange={(e) => {
+                void onLabelPhoto(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          ))}
+          {scan.state === "busy" ? (
+            <div className="flex h-[52px] items-center justify-center gap-2 rounded-btn bg-surface-2 font-semibold">
+              <Loader2 className="size-5 animate-spin" /> Reading the label…
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <span className={labelCls}>{scan.state === "done" ? "Scan the label again" : "Scan the nutrition label"}</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInput.current?.click()}
+                  className="press flex h-[52px] items-center justify-center gap-2 rounded-btn bg-surface-2 font-semibold"
+                >
+                  <Camera className="size-5" /> Take photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInput.current?.click()}
+                  className="press flex h-[52px] items-center justify-center gap-2 rounded-btn bg-surface-2 font-semibold"
+                >
+                  <ImageIcon className="size-5" /> From gallery
+                </button>
+              </div>
+            </div>
+          )}
           {scan.state === "done" && (
             <p className="text-[13px] text-ink-2">Filled in from the photo. Check the numbers against the label before saving.</p>
           )}

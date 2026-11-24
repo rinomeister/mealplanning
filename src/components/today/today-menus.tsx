@@ -19,7 +19,8 @@ import { Sheet, SheetItem } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { SLOTS, SLOT_LABELS, type SlotKey } from "@/lib/schemas";
 import { addDaysKey, formatHuman } from "@/lib/dates";
-import { fmtG, fmtKcal } from "@/lib/macro-format";
+import { fmtG, fmtKcal, macrosOf } from "@/lib/macro-format";
+import { MacroGrid } from "@/components/macro-ui";
 import type { DayEntry } from "@/lib/day-entry";
 import type { Macros } from "@/lib/macros";
 
@@ -94,6 +95,12 @@ export function EntryMenu({
       {view === "menu" && (
         <div className="pb-3">
           <p className="truncate px-5 pb-2 pt-1 text-base font-semibold">{entry.name}</p>
+          {entry.hasMacros && (
+            <MacroGrid
+              macros={macrosOf({ ...entry.basis, servings: entry.servings, grams: entry.grams, productId: entry.productId })}
+              className="px-5 pb-3"
+            />
+          )}
           {!skipped && (
             <SheetItem
               icon={eaten ? <RotateCcw /> : <Check />}
