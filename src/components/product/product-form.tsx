@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { scanLabel } from "@/lib/label-scan";
 import { cn, parseDecimal } from "@/lib/utils";
 import { fmtG, fmtKcal } from "@/lib/macro-format";
 import { SLOT_LABELS, type SlotKey } from "@/lib/schemas";
@@ -110,6 +111,30 @@ export function ProductForm({
   const [editingPortion, setEditingPortion] = useState<number | null>(null);
   const [busy, setBusy] = useState<null | "save" | "add">(null);
   const [error, setError] = useState("");
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [scan, setScan] = useState<{ state: "idle" | "busy" | "done" } | { state: "error"; message: string }>({ state: "idle" });
+
+  async function onLabelPhoto(file: File | undefined) {
+    if (!file) return;
+    setScan({ state: "busy" });
+    const r = await scanLabel(file);
+    if (!r.ok) {
+      setScan({ state: "error", message: r.error });
+      return;
+    }
+    const s = (v: number | null) => (v == null ? "" : String(r1(v)));
+    setVals({ kcal: s(r.kcal), protein: s(r.protein), carbs: s(r.carbs), fat: s(r.fat), sugar: s(r.sugar), fiber: s(r.fiber) });
+    setBasis(r.basis);
+    if (!name.trim() && r.name) setName(r.name);
+    if (!brand.trim() && r.brand) setBrand(r.brand);
+    if (r.basis === "serving") {
+      setServing(r.servingGrams ? String(r1(r.servingGrams)) : "");
+    } else if (r.servingGrams && portions.length === 0) {
+      setPortions([{ label: "serving", grams: String(r1(r.servingGrams)) }]);
+    }
+    setError("");
+    setScan({ state: "done" });
+  }
 
   const unit = basis === "100ml" ? "ml" : "g";
   const sw = num(servingWeight);
@@ -275,6 +300,43 @@ export function ProductForm({
               className={cn(field, "num")}
             />
           </label>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <input
+            ref={photoInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              void onLabelPhoto(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            disabled={scan.state === "busy"}
+            onClick={() => photoInput.current?.click()}
+            className="press flex h-[52px] items-center justify-center gap-2 rounded-btn bg-surface-2 font-semibold"
+          >
+            {scan.state === "busy" ? (
+              <>
+                <Loader2 className="size-5 animate-spin" /> Reading the label…
+              </>
+            ) : (
+              <>
+                <Camera className="size-5" /> {scan.state === "done" ? "Scan the label again" : "Scan the nutrition label"}
+              </>
+            )}
+          </button>
+          {scan.state === "done" && (
+            <p className="text-[13px] text-ink-2">Filled in from the photo. Check the numbers against the label before saving.</p>
+          )}
+          {scan.state === "error" && (
+            <p className="text-[13px] text-bad" role="alert">
+              {scan.message}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

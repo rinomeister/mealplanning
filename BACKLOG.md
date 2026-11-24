@@ -16,6 +16,17 @@ anywhere in the list.
 
 6. **Swipe actions on Track** to mark eaten, skip or delete.
 
+## AI (Gemini, free tier)
+
+Server route calls Gemini with `GEMINI_API_KEY` (see `src/lib/gemini.ts`);
+the key never reaches the phone. Free tier chosen: two users, a few photos a week.
+
+17. **Photo of the plate → Quick add.** Gemini lists the foods with estimated
+    grams; match each against our own products first, else use Gemini's
+    per-100 g reference values marked as an estimate. A review sheet with
+    editable grams sums into a Quick add entry. Typed descriptions ("2 eggs
+    and toast") reuse the same pipeline.
+
 ## Insight and motivation
 
 7. **Streak:** consecutive days the protein goal was hit (averages and hit days
@@ -41,6 +52,7 @@ anywhere in the list.
 
 ## Done
 
+- Scan the nutrition label (Gemini) to fill a product's numbers (Nov 2026)
 - Progress screen: 7/30/90-day protein chart, averages vs target, bodyweight trend (Nov 2026)
 - Entries keep their own macros; edits only affect today onward (Nov 2026)
 - Quick add (Nov 2026)
